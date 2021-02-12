@@ -1,14 +1,14 @@
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
-get-module Boxstarter.* | Remove-Module -ErrorAction  SilentlyContinue
-Resolve-Path $here\..\..\Boxstarter.Common\*.ps1 | 
+Get-Module Boxstarter.* | Remove-Module -ErrorAction  SilentlyContinue
+Resolve-Path $here\..\..\Boxstarter.Common\*.ps1 |
     % { . $_.ProviderPath }
-Resolve-Path $here\..\..\Boxstarter.Bootstrapper\*.ps1 | 
+Resolve-Path $here\..\..\Boxstarter.Bootstrapper\*.ps1 |
     % { . $_.ProviderPath }
 Resolve-Path $here\..\..\Boxstarter.Chocolatey\*.ps1 |
-    ? { $_.Path -like "*-*" } | 
+    ? { $_.Path -like "*-*" } |
     % { . $_.ProviderPath }
-Resolve-Path $here\..\..\Boxstarter.TestRunner\*.ps1 | 
-    ? { $_.Path -like "*-*" } | 
+Resolve-Path $here\..\..\Boxstarter.TestRunner\*.ps1 |
+    ? { $_.Path -like "*-*" } |
     % { . $_.ProviderPath }
 
 Describe "Install-BoxstarterScripts" {
@@ -21,13 +21,13 @@ Describe "Install-BoxstarterScripts" {
         Install-BoxstarterScripts $repo
 
         It "should copy bootstrapper" {
-            join-Path $repo "BoxstarterScripts\bootstrap.ps1" | Should exist
+            Join-Path $repo "BoxstarterScripts\bootstrap.ps1" | Should exist
         }
         It "should copy msbuild file" {
-            join-Path $repo "BoxstarterScripts\boxstarter.proj" | Should exist
+            Join-Path $repo "BoxstarterScripts\boxstarter.proj" | Should exist
         }
         It "should copy BoxstarterBuild" {
-            join-Path $repo "BoxstarterScripts\BoxstarterBuild.ps1" | Should exist
+            Join-Path $repo "BoxstarterScripts\BoxstarterBuild.ps1" | Should exist
         }
         It "should write ignore file for secrets" {
             "$repo\BoxstarterScripts\.gitignore" | Should contain "-options.xml"

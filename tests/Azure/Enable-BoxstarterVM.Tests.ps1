@@ -1,13 +1,15 @@
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 Remove-Module boxstarter.*
-Resolve-Path $here\..\..\Boxstarter.Azure\*.ps1 | 
+Resolve-Path $here\..\..\Boxstarter.Common\*.ps1 |
     % { . $_.ProviderPath }
-Resolve-Path $here\..\..\Boxstarter.Common\*.ps1 | 
+Resolve-Path $here\..\..\Boxstarter.Bootstrapper\*.ps1 |
     % { . $_.ProviderPath }
-Resolve-Path $here\..\..\Boxstarter.Bootstrapper\*.ps1 | 
+Resolve-Path $here\..\..\Boxstarter.Chocolatey\*.ps1 |
     % { . $_.ProviderPath }
-Resolve-Path $here\..\..\Boxstarter.Chocolatey\*.ps1 | 
+Resolve-Path $here\..\..\Boxstarter.Azure\*.ps1 |
     % { . $_.ProviderPath }
+Import-AzureModule
+
 Remove-Item alias:\Enable-BoxstarterVM
 
 Describe "Enable-BoxstarterVM.Azure" {
@@ -17,7 +19,7 @@ Describe "Enable-BoxstarterVM.Azure" {
     $vmName="VMName"
     $vmServiceName="service"
     [Uri]$vmConnectionURI="http://localhost:5985/wsman"
-    $vm = new-Object Microsoft.WindowsAzure.Commands.ServiceManagement.Model.PersistentVMRoleContext
+    $vm = New-Object Microsoft.WindowsAzure.Commands.ServiceManagement.Model.PersistentVMRoleContext
     $vm.Name=$vmName
     $vm.ServiceName=$vmServiceName
     $vm.InstanceStatus="ReadyRole"
@@ -28,7 +30,7 @@ Describe "Enable-BoxstarterVM.Azure" {
     Mock Enable-BoxstarterClientRemoting
     Mock Set-AzureVMCheckpoint
     Mock Restore-AzureVMCheckpoint
-    Mock get-AzureSubscription { return @{CurrentStorageAccountName="sa"} }
+    Mock Get-AzureSubscription { return @{CurrentStorageAccountName="sa"} }
     Mock Invoke-RetriableScript -ParameterFilter {$RetryScript -ne $null -and $RetryScript.ToString() -like "*Get-WMIObject*"}
     Mock Set-AzureSubscription
     Mock Restart-computer
@@ -111,9 +113,9 @@ Describe "Enable-BoxstarterVM.Azure" {
     }
 
     Context "When CurrentStorageAccountName has not been set"{
-        Mock Get-AzureSubscription {@{ 
+        Mock Get-AzureSubscription {@{
             SubscriptionName="subName"
-            CurrentStorageAccountName=$null 
+            CurrentStorageAccountName=$null
         }}
         Mock Get-AzureStorageAccount {@(
             @{

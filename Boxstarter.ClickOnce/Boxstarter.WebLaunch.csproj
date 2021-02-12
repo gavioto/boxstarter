@@ -21,8 +21,8 @@
     <UpdatePeriodically>false</UpdatePeriodically>
     <UpdateRequired>false</UpdateRequired>
     <MapFileExtensions>true</MapFileExtensions>
-    <InstallUrl>http://boxstarter.org/launch/</InstallUrl>
-    <SupportUrl>http://boxstarter.org</SupportUrl>
+    <InstallUrl>https://boxstarter.org/launch/</InstallUrl>
+    <SupportUrl>https://boxstarter.org</SupportUrl>
     <ProductName>Boxstarter.WebLaunch</ProductName>
     <PublisherName>Boxstarter.org</PublisherName>
     <OpenBrowserOnPublish>false</OpenBrowserOnPublish>
@@ -65,7 +65,7 @@
     <ApplicationManifest>Properties\app.manifest</ApplicationManifest>
   </PropertyGroup>
   <PropertyGroup>
-    <ManifestCertificateThumbprint>38EE6C843632E1B33BB262CB3272A5759118D897</ManifestCertificateThumbprint>
+    <ManifestCertificateThumbprint>4BF7DCBC06F6D0BDFA8A0A78DE0EFB62563C4D87</ManifestCertificateThumbprint>
   </PropertyGroup>
   <PropertyGroup>
     <ManifestKeyFile>
@@ -80,6 +80,9 @@
   </PropertyGroup>
   <PropertyGroup>
     <ApplicationIcon>boxLogo_sm.ico</ApplicationIcon>
+  </PropertyGroup>
+  <PropertyGroup>
+    <ManifestTimestampUrl>http://timestamp.digicert.com</ManifestTimestampUrl>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
@@ -99,6 +102,9 @@
     </Content>
     <Content Include="..\Boxstarter.Chocolatey\*.*">
       <Link>Boxstarter.Chocolatey\%(Filename)%(Extension)</Link>
+    </Content>
+    <Content Include="..\Boxstarter.Chocolatey\Chocolatey\*.*">
+      <Link>Boxstarter.Chocolatey\Chocolatey\%(Filename)%(Extension)</Link>
     </Content>
     <Content Include="..\BoxStarter.Common\*.*">
       <Link>Boxstarter.Common\%(Filename)%(Extension)</Link>
@@ -132,13 +138,18 @@
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
-    <PostBuildEvent>"$(WindowsSDK80Path)bin\x64\signtool.exe" sign /n "Open Source Developer, Boxstarter.org" "$(ProjectDir)obj\debug\Boxstarter.WebLaunch.exe"</PostBuildEvent>
+    <PostBuildEvent Condition="Exists($(CHOCOLATEY_OFFICIAL_CERT))">set /p CertificatePassword=&lt;%25CHOCOLATEY_OFFICIAL_CERT_PASSWORD%25
+"$(WindowsSDK80Path)bin\x64\signtool.exe" sign /f %25CHOCOLATEY_OFFICIAL_CERT%25 /p %25CertificatePassword%25 "$(ProjectDir)obj\debug\Boxstarter.WebLaunch.exe"</PostBuildEvent>
   </PropertyGroup>
-  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it.
        Other similar extension points exist, see Microsoft.Common.targets.
   <Target Name="BeforeBuild">
   </Target>
   <Target Name="AfterBuild">
   </Target>
   -->
+  <PropertyGroup>
+    <!-- This is set to true by default if targetting .NET 2.0, 3.0 OR SignManifest == true. Override that for non-official builds. -->
+    <_DeploymentSignClickOnceManifests Condition="'$(CHOCOLATEY_OFFICIAL_CERT)' == ''">false</_DeploymentSignClickOnceManifests>
+  </PropertyGroup>
 </Project>

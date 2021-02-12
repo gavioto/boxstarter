@@ -2,6 +2,7 @@
 <Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>{d63439cd-1975-444d-94ea-ec0948179464}</ProjectGuid>
     <OutputType>Exe</OutputType>
@@ -30,7 +31,9 @@
     <Compile Include="boxstarter.WinConfig.psd1" />
     <Compile Include="Boxstarter.WinConfig.psm1" />
     <Compile Include="Disable-InternetExplorerESC.ps1" />
+    <Compile Include="Disable-GameBarTips.ps1" />
     <Compile Include="Disable-UAC.ps1" />
+    <Compile Include="Disable-BingSearch.ps1" />
     <Compile Include="Enable-RemoteDesktop.ps1" />
     <Compile Include="Enable-UAC.ps1" />
     <Compile Include="Get-LibraryNames.ps1" />
@@ -47,7 +50,7 @@
     <Content Include="Disable-MicrosoftUpdate.ps1" />
     <Content Include="Enable-MicrosoftUpdate.ps1" />
     <Content Include="Set-StartScreenOptions.ps1" />
-    <Content Include="Set-TaskbarOptions.ps1" />
+    <Content Include="Set-BoxstarterTaskbarOptions.ps1" />
     <Content Include="Set-WindowsExplorerOptions.ps1" />
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />

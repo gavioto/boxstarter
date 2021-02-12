@@ -1,10 +1,11 @@
 $tools = "$(Split-Path -parent $MyInvocation.MyCommand.Definition)"
 . (Join-Path $tools Setup.ps1)
-try { 
+try {
     $ModuleName = (Get-ChildItem $tools | ?{ $_.PSIsContainer }).BaseName
-    Install-Boxstarter "$(Split-Path -parent $MyInvocation.MyCommand.Definition)" $ModuleName
-    Write-ChocolateySuccess $ModuleName
+    $preInstall = Join-Path $tools "$modulename.preinstall.ps1"
+    if(Test-Path $preInstall) { .$preInstall }
+    Install-Boxstarter $tools $ModuleName $env:chocolateyPackageParameters
 } catch {
-    Write-ChocolateyFailure $ModuleName "$($_.Exception.Message)"
-    throw 
+    Write-Output $_ | fl * -force
+    throw $_.Exception
 }

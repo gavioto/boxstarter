@@ -7,12 +7,12 @@
     <p class="lead">Sometimes a package may contain more than just a nuspec file and an install script. You may also want to install the package onto a remote machine.</p>
     <p class="lead"><span class="text-primary">Boxstarter can create a template package targeting an existing directory and install the package on any machine open to WINRM or WMI remoting.</span></p>
 }
-<p>This walk through will create a Nuget ODATA feed application and deploy it to a remote server after enabling web services on the server.</p>
+<p>This walk through will create a NuGet ODATA feed application and deploy it to a remote server after enabling web services on the server.</p>
 
 <h3>Step 1</h3>
-<h4><span class="text-primary">Create and Build the Nuget server</span></h4>
-<p>Create an empty Web Application in Visual Studio and add a Nuget reference to Nuget.Server. After the package install completes, build the solution. NOTE: This can be performed with the free Visual Studio Express for Web which can be installed via Chocolatey - <code>cinst VisualStudio2013ExpressWeb</code>.</p>
-<img src="~/Images/NugetServer.png">
+<h4><span class="text-primary">Create and Build the NuGet server</span></h4>
+<p>Create an empty Web Application in Visual Studio and add a NuGet reference to NuGet.Server. After the package install completes, build the solution. NOTE: This can be performed with the free Visual Studio Express for Web which can be installed via Chocolatey - <code>cinst VisualStudio2013ExpressWeb</code>.</p>
+<img class="img-responsive" src="~/Images/NugetServer.png">
 
 <h3>Step 2</h3>
 <h4><span class="text-primary">Install Boxstarter</span></h4>
@@ -22,14 +22,14 @@
 
 <h3>Step 3</h3>
 <h4><span class="text-primary">Invoke the Boxstarter shell</span></h4>
-<img src="~/Images/shortcut.png">
-<p>The Boxstarter install creates a shortcut to a shell that provides the easiest way to access Boxstarter commands especially if you are not familiar with Powershell. See <a href="~/UsingBoxstarter">Using Boxstarter Commands</a> for information about running Boxstarter in your own shell.</p>
+<img class="img-responsive" src="~/Images/shortcut.png">
+<p>The Boxstarter install creates a shortcut to a shell that provides the easiest way to access Boxstarter commands especially if you are not familiar with PowerShell. See <a href="~/UsingBoxstarter">Using Boxstarter Commands</a> for information about running Boxstarter in your own shell.</p>
 
 <h3>Step 4</h3>
 <h4><span class="text-primary">Create the Package</span></h4>
 <p>Lets assume that you saved the above Visual Studio project to c:\dev\NugetServer. You can now create a package with the artifacts of this project embedded in the package:</p>
 <pre>
-New-BoxstarterPackage -Name NugetFeedApp
+New-BoxstarterPackage -Name NugetServer
 Copy-Item c:\dev\NugetServer "$($Boxstarter.LocalRepo)\NugetServer" -Recurse -Force
 </pre>
 <p>This creates a skeleton Chocolatey package with the contents of your NugetServer application embedded in the package. You will need to complete the ChocolateyInstall.ps1 file.</p>
@@ -65,7 +65,7 @@ try {
 
     #Client SKUs need to enable firewall
     netsh advfirewall firewall add rule name="Open Port 80" dir=in action=allow protocol=TCP localport=80
-    
+
     Write-ChocolateySuccess 'NugetServer'
 } catch {
   Write-ChocolateyFailure 'NugetServer' $($_.Exception.ToString())
@@ -80,7 +80,7 @@ try {
 <pre>Invoke-BoxstarterBuild -Name NugetServer</pre>
 
 <h3>Step 7</h3>
-<h4><span class="text-primary">Ensure Powershell Remoting is enabled on the target machine</span></h4>
+<h4><span class="text-primary">Ensure PowerShell Remoting is enabled on the target machine</span></h4>
 <p>In many cases this step is unnecessary. If you are using either the builtin administrator account or a domain account with admin privileges on a server operating system, remoting is on by default. Otherwise, run the following command on the machine with a user who has admin privileges:</p>
 <pre>Enable-PSRemoting -Force</pre>
 
@@ -94,5 +94,5 @@ Install-BoxstarterPackage -ComputerName MyMachine -PackageName NugetServer -Cred
 
 <h3>Step 9</h3>
 <h4><span class="text-primary">Run the application</span></h4>
-<p>Now we should be able to browse to our Nuget server application at http://MyServer</p>
-<img src="~/Images/NugetServerWeb.png">
+<p>Now we should be able to browse to our NuGet server application at http://MyServer</p>
+<img class="img-responsive" src="~/Images/NugetServerWeb.png">

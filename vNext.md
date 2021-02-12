@@ -2,22 +2,22 @@
 
 ## Goals
 
-### A more precise separation between boxstarter and provisioner(chocolatey)
-Boxstarter began with the intention of abstracting reboot resiliancy and being capable of running ANY script (chocolatey or not) in an unattended rebootable manner. Shortcuts have been taken it spots that hard wire Boxstarter and chocolatey especially with remote execution. All remote execution code is in the chocolatey module.
+### A more precise separation between boxstarter and provisioner(Chocolatey)
+Boxstarter began with the intention of abstracting reboot resiliancy and being capable of running ANY script (Chocolatey or not) in an unattended rebootable manner. Shortcuts have been taken it spots that hard wire Boxstarter and Chocolatey especially with remote execution. All remote execution code is in the Chocolatey module.
 
 ### Work with other Provisioners
-Currently chocolatey is the only provisioner. We also want to work with chef, puppet, DSC, etc.
+Currently Chocolatey is the only provisioner. We also want to work with chef, puppet, DSC, etc.
 
 ### Ability to compose multiple provisioners in a single install.
-This is up for debate. The thought being maybe you have a bunch of install automation that leverages chocolatey but there is a chef cookbook, DSC resource or puppet module that does something you want to include. I question the value here since many of these provisioners already allow you to nest one another. For example, you can use the Chocolatey or Boxtarter cookbook in chef and use chef to consume DSC  resources. It still makes sense to explore this.
+This is up for debate. The thought being maybe you have a bunch of install automation that leverages Chocolatey but there is a chef cookbook, DSC resource or puppet module that does something you want to include. I question the value here since many of these provisioners already allow you to nest one another. For example, you can use the Chocolatey or Boxtarter cookbook in chef and use chef to consume DSC  resources. It still makes sense to explore this.
 
 ### Clean up the execution workflow of a boxstarter run. Its current recursive pattern makes it overly complicated
 
 **Current workflow**
 ```
-Install-BoxstarterPackage(entry point) -> 
-Invoke-ChocolateyBoxstarter -> 
-Invoke-Boxstarter -> 
+Install-BoxstarterPackage(entry point) ->
+Invoke-ChocolateyBoxstarter ->
+Invoke-Boxstarter ->
 Invoke-ChocolateyBoxstarter
 ```
 
@@ -43,13 +43,13 @@ I'm considering rewriting the core of boxstarter in GO for these reasons.
 * Is not c++
 * I want to learn it. Yeah I said it.
 
-Once some design decisions have been ironed out, it may make more sense to remain in pure powershell and then port to GO later after the basic structure is stable or maybe not. Regardless, there will be a powershell module to wrap the core so users can still call boxstarter via powershell commands.
+Once some design decisions have been ironed out, it may make more sense to remain in pure PowerShell and then port to GO later after the basic structure is stable or maybe not. Regardless, there will be a PowerShell module to wrap the core so users can still call boxstarter via PowerShell commands.
 
 ## Thoughts on revised execution flow
 ### Boxstarter core as entry point
 
 ```
-Invoke-Boxstarter(includes install boxstarter package) -> 
+Invoke-Boxstarter(includes install boxstarter package) ->
 Invoke-ChocolateyBoxstarter(or other  provisioner(s))
 ```
 
@@ -62,11 +62,11 @@ Invoke-ChocolateyBoxstarter(or other  provisioner(s))
 
 ### Provisioner defines entry point
 ```
-Invoke-ChocolateyBoxstarter -> 
+Invoke-ChocolateyBoxstarter ->
 Invoke-Boxstarter
 ```
 
-* The provisioner is the entry point that adheres to an interface defined by boxstarter core and calls its API 
+* The provisioner is the entry point that adheres to an interface defined by boxstarter core and calls its API
 * Allows for a calling syntax that cators to the specifics of the provisioner
 
 **Problems**

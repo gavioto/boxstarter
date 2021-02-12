@@ -1,42 +1,77 @@
+
 function Install-ChocolateyInstallPackageOverride {
-param(
-  [string] $packageName, 
-  [string] $fileType = 'exe',
-  [string] $silentArgs = '',
-  [string] $file,
-  $validExitCodes = @(0)
-)    
+    param(
+        [string]
+        $packageName,
+        
+        [string]
+        $fileType = 'exe',
+        
+        [string]
+        $silentArgs = '',
+
+        [alias("fileFullPath")]
+        [string] 
+        $file,
+
+        [alias("fileFullPath64")]
+        [string] 
+        $file64,
+
+        [Int64[]]
+        $validExitCodes = @(0)
+    )
+
     Wait-ForMSIEXEC
-    if(Get-IsRemote){
+    if (Get-IsRemote) {
         Invoke-FromTask @"
-Import-Module $env:ChocolateyInstall\chocolateyinstall\helpers\chocolateyInstaller.psm1 -Global
+Import-Module $env:chocolateyinstall\helpers\chocolateyInstaller.psm1 -Global -DisableNameChecking
 Install-ChocolateyInstallPackage $(Expand-Splat $PSBoundParameters)
 "@
     }
-    else{
+    else {
         chocolateyInstaller\Install-ChocolateyInstallPackage @PSBoundParameters
     }
 }
 
 function Write-HostOverride {
-param(
-  [Parameter(Position=0,Mandatory=$false,ValueFromPipeline=$true, ValueFromRemainingArguments=$true)][object] $Object,
-  [Parameter()][switch] $NoNewLine, 
-  [Parameter(Mandatory=$false)][ConsoleColor] $ForegroundColor, 
-  [Parameter(Mandatory=$false)][ConsoleColor] $BackgroundColor,
-  [Parameter(Mandatory=$false)][Object] $Separator
-)
-    if($Boxstarter.ScriptToCall -ne $null) { Log-BoxStarterMessage $object }
+    param(
+        [Parameter(Position = 0, Mandatory = $false, ValueFromPipeline = $true, ValueFromRemainingArguments = $true)]
+        [object] 
+        $Object,
 
-    if($Boxstarter.SuppressLogging){
+        [Parameter()]
+        [switch]
+        $NoNewLine,
+
+        [Parameter(Mandatory = $false)]
+        [ConsoleColor]
+        $ForegroundColor,
+
+        [Parameter(Mandatory = $false)]
+        [ConsoleColor]
+        $BackgroundColor,
+        
+        [Parameter(Mandatory = $false)]
+        [Object]
+        $Separator
+    )
+
+    if ($null -ne $Boxstarter.ScriptToCall) { 
+        Log-BoxStarterMessage $object 
+    }
+
+    if ($Boxstarter.SuppressLogging) {
         $caller = (Get-Variable MyInvocation -Scope 1).Value.MyCommand.Name
-        if("Describe","Context","write-PesterResult" -contains $caller) {
+        if ("Describe", "Context", "Write-PesterResult" -contains $caller) {
             Microsoft.PowerShell.Utility\Write-Host @PSBoundParameters
         }
         return;
     }
-    if(get-Module chocolateyInstaller){
-        chocolateyInstaller\Write-Host @PSBoundParameters
+    $chocoWriteHost = Get-Command -Module chocolateyInstaller | Where-Object { $_.Name -eq "Write-Host" }
+
+    if ($chocoWriteHost) {
+        &($chocoWriteHost) @PSBoundParameters
     }
     else {
         Microsoft.PowerShell.Utility\Write-Host @PSBoundParameters
@@ -46,245 +81,619 @@ param(
 new-alias Install-ChocolateyInstallPackage Install-ChocolateyInstallPackageOverride -force
 new-alias Write-Host Write-HostOverride -force
 
+<#
+.SYNOPSIS
+    Intercepts Chocolatey install call to check for reboots
+    See function 'chocolatey' for more detail.
+#>
 function cinst {
-<#
-.SYNOPSIS
-Intercepts Chocolatey call to check for reboots
-
-#>    
-    param([int[]]$RebootCodes=@())
-    chocolatey Install @PSBoundParameters
+    chocolatey -Command "Install" @args
 }
 
-function choco {
 <#
 .SYNOPSIS
-Intercepts Chocolatey call to check for reboots
+    Intercepts Chocolatey call to check for reboots
+    See function 'chocolatey' for more detail.
+#>
+function choco {  
+    param(
+        [string]
+        $Command
+    )
 
-#>    
-    param([int[]]$RebootCodes=@())
-    chocolatey @PSBoundParameters
+    chocolatey -Command $Command @args
 }
 
+<#
+.SYNOPSIS
+    Intercepts Chocolatey upgrade call to check for reboots
+    See function 'chocolatey' for more detail.
+#>
 function cup {
-<#
-.SYNOPSIS
-Intercepts Chocolatey call to check for reboots
-
-#>    
-    param([int[]]$RebootCodes=@())
-    chocolatey Update @PSBoundParameters
+    chocolatey -Command "Upgrade" @args
 }
 
-function cinstm {
 <#
 .SYNOPSIS
-Intercepts Chocolatey call to check for reboots
+    Intercepts Chocolatey call to check for reboots
 
-#>    
-    param([int[]]$RebootCodes=@())
-    chocolatey InstallMissing @PSBoundParameters
-}
+.DESCRIPTION
+    This function wraps a Chocolatey command and provides additional features.
+    - Enables the user to specify additonal RebootCodes
+    - Detects pending reboots and restarts the machine when necessary to avoid installation failures
+    - Provides Reboot Resiliency by ensuring the package installation is immediately restarted up on reboot if there is a reboot during the installation.
 
+.PARAMETER Command
+    The Chocolatey command to run.
+    Only "install", "uninstall", "upgrade" and "update" will check for pending reboots.
+
+.PARAMETER RebootCodes
+    An array of additional return values that will yield in rebooting the machine if Chocolatey
+    returns that value. These values will add to the default list of @(3010, -2067919934).
+#>
 function chocolatey {
-<#
-.SYNOPSIS
-Intercepts Chocolatey call to check for reboots
+    param(
+        [string]
+        $Command
+    )
 
-#>  
-    param([int[]]$RebootCodes=@())
-    $RebootCodes=Add-DefaultRebootCodes $RebootCodes
-    $PSBoundParameters.Remove("RebootCodes") | Out-Null
-    $packageNames=-split $packageNames
-    Write-BoxstarterMessage "Installing $($packageNames.Count) packages" -Verbose
-    #backwards compatibility for Chocolatey versions prior to 0.9.8.21
-    if(!$packageNames){$packageNames=$packageName}
+    $rebootProtectedCommands = @("install", "uninstall", "upgrade", "update")
+    if ($rebootProtectedCommands -notcontains $command) {
+        Call-Chocolatey @PSBoundParameters @args
+        return
+    }
+    $argsExpanded = $args | Foreach-Object { "$($_); " }
+    Write-BoxstarterMessage "Parameters to be passed to Chocolatey: Command='$Command', args='$argsExpanded'" -Verbose
+
+    $stopOnFirstError = (Get-PassedSwitch -SwitchName "StopOnPackageFailure" -OriginalArgs $args) -Or $Boxstarter.StopOnPackageFailure
+    Write-BoxstarterMessage "Will stop on first package error: $stopOnFirstError" -Verbose
+
+    $rebootCodes = Get-PassedArg -ArgumentName 'RebootCodes' -OriginalArgs $args
     
-    foreach($packageName in $packageNames){
-        $PSBoundParameters.packageNames = $packageName
-        if($source -eq "WindowsFeatures"){
-            $dismInfo=(DISM /Online /Get-FeatureInfo /FeatureName:$packageName)
-            if($dismInfo -contains "State : Enabled" -or $dismInfo -contains "State : Enable Pending") {
+    $argsWithoutBoxstarterSpecials = @()
+    $skipNextArg = $false
+
+    foreach ($a in $args) {
+        if ($skipNextArg) {
+            $skipNextArg = $false;
+            continue;
+        }
+
+        # if a 'pure Boxstarter' parameter has been specified, 
+        # we need to remove it from the command line arguments that 
+        # will be passed to Chocolatey, as only Boxstarter is able to handle it
+        if ($a -match "^--?RebootCodes$") {
+            $skipNextArg = $true
+            continue;
+        }
+        if ($a -match "^--?StopOnPackageFailure$") {
+            continue;
+        }
+        $argsWithoutBoxstarterSpecials += $a
+    }
+
+    $args = $argsWithoutBoxstarterSpecials
+    $rebootCodes = Add-DefaultRebootCodes -Codes $rebootCodes
+    Write-BoxstarterMessage "RebootCodes: '$rebootCodes' ($($rebootCodes.Count) elements)" -Verbose
+
+    $PackageNames = Get-PackageNamesFromInvocationLine -InvocationArguments $args
+    $argsWithoutPackageNames = @()
+    # we need to separate package names from remaining arguments,
+    # as we're going to install packages one after another,
+    # checking for required reboots in between the installs
+    $args | ForEach-Object { 
+        if ($PackageNames -notcontains $_) { 
+            $argsWithoutPackageNames += $_
+        } 
+    }
+    $args = $argsWithoutPackageNames
+    Write-BoxstarterMessage "Installing $($PackageNames.Count) packages" -Verbose
+
+    foreach ($packageName in $PackageNames) {
+        $PSBoundParameters.PackageNames = $packageName
+        if ((Get-PassedArg -ArgumentName @("source", "s") -OriginalArgs $args) -eq "WindowsFeatures") {
+            $dismInfo = (DISM /Online /Get-FeatureInfo /FeatureName:$packageName)
+            if ($dismInfo -contains "State : Enabled" -or $dismInfo -contains "State : Enable Pending") {
                 Write-BoxstarterMessage "$packageName is already installed"
                 return
             }
-            else{
-                $winFeature=$true
-            }
         }
-        if(((Test-PendingReboot) -or $Boxstarter.IsRebooting) -and $Boxstarter.RebootOk) {return Invoke-Reboot}
-        $session=Start-TimedSection "Calling Chocolatey to install $packageName. This may take several minutes to complete..."
+        if (((Test-PendingReboot) -or $Boxstarter.IsRebooting) -and $Boxstarter.RebootOk) {
+            return Invoke-Reboot
+        }
+        $session = Start-TimedSection "Calling Chocolatey to install $packageName. This may take several minutes to complete..."
+        $currentErrorCount = 0
+        $rebootable = $false
         try {
-                if($winFeature -eq $true -and (Get-IsRemote)){
-                    #DISM Output is more confusing than helpful.
-                    $currentLogging=$Boxstarter.Suppresslogging
-                    if($VerbosePreference -eq "SilentlyContinue"){$Boxstarter.Suppresslogging=$true}
-                    Invoke-FromTask @"
-."$env:ChocolateyInstall\chocolateyinstall\chocolatey.ps1" $(Expand-Splat $PSBoundParameters)
-"@
-                    $Boxstarter.SuppressLogging = $currentLogging
-                }
-                else{
-                    Call-Chocolatey @PSBoundParameters
-                    Write-BoxstarterMessage "Exit Code: $LastExitCode" -Verbose
-                    if($LastExitCode -ne 0) {
-                        Write-Error "Chocolatey reported an unsuccessful exit code of $LastExitCode"
-                    }
-                }
+            [System.Environment]::ExitCode = 0
+            Call-Chocolatey -Command $Command -PackageNames $PackageNames @args
+            $ec = [System.Environment]::ExitCode
+            # suppress errors from enabled features that need a reboot
+            if ((Test-WindowsFeatureInstall $args) -and $ec -eq 3010) { 
+                $ec = 0
             }
-            catch { 
-                Write-BoxstarterMessage "There was an error calling chocolatey" -Verbose
-                $ex=$_
-                Log-BoxstarterMessage $_
-                #Only write the error to the error stream if it was not previously
-                #written by chocolatey
-                if($global:error.Count -gt 1){
-                    if(($global:error[1].Exception.Message | Out-String).Contains($_.Exception.Message)){
-                        $errorWritten=$true
-                    }
-                }
-                if(!$errorWritten){
-                    Write-Error $_
-                }
+            # Chocolatey reassembles environment variables after an install
+            # but does not add the machine PSModule value to the user Online
+            $machineModPath = [System.Environment]::GetEnvironmentVariable("PSModulePath", "Machine")
+            if (!$env:PSModulePath.EndsWith($machineModPath)) {
+                $env:PSModulePath += ";" + $machineModPath
             }
-        Stop-Timedsection $session
-        if(!$Boxstarter.rebootOk) {continue}
-        if($Boxstarter.IsRebooting){
-            Remove-ChocolateyPackageInProgress $packageName
-            return
+
+            Write-BoxstarterMessage "Exit Code: $ec" -Verbose
+            if ($ec -ne 0) {
+                Write-Error "Chocolatey reported an unsuccessful exit code of $ec. See $($Boxstarter.Log) for details."
+                $currentErrorCount += 1
+            }
         }
-        if($global:error.count -gt 0) {
-            if ($ex -ne $null -and ($ex -match "code was '(-?\d+)'")) {
-                $errorCode=$matches[1]
-                if($RebootCodes -contains $errorCode) {
-                    Write-BoxstarterMessage "Chocolatey Install returned a reboot-able exit code"
-                    Remove-ChocolateyPackageInProgress $packageName
-                    Invoke-Reboot
+        catch {
+            Write-BoxstarterMessage "Exception: $($_.Exception.Message)" -Verbose
+            #Only write the error to the error stream if it was not previously
+            #written by Chocolatey
+            $currentErrorCount += 1
+            $chocoErrors = $currentErrorCount
+            if ($chocoErrors -gt 0) {
+                $idx = 0
+                $errorWritten = $false
+                while ($idx -lt $chocoErrors) {
+                    if (($global:error[$idx].Exception.Message | Out-String).Contains($_.Exception.Message)) {
+                        $errorWritten = $true
+                    }
+                    if (!$errorWritten) {
+                        Write-Error $_
+                    }
+                    $idx += 1
                 }
             }
+        }
+        $chocoErrors = $currentErrorCount
+        if ($chocoErrors -gt 0) {
+            Write-BoxstarterMessage "There was an error calling Chocolatey" -Verbose
+            $idx = 0
+            while ($idx -lt $chocoErrors) {
+                Write-BoxstarterMessage "Error from Chocolatey: $($global:error[$idx].Exception | fl * -Force | Out-String)"
+                if ($global:error[$idx] -match "code (was '(?'ecwas'-?\d+)'|of (?'ecof'-?\d+)\.)") {
+                    if ($matches["ecwas"]) {
+                        $errorCode = $matches["ecwas"]
+                    }
+                    else {
+                        $errorCode = $matches["ecof"]
+                    }
+                    if ($rebootCodes -contains $errorCode) {
+                        Write-BoxstarterMessage "Chocolatey install returned a rebootable exit code ($errorCode)" -Verbose
+                        $rebootable = $true
+                    }
+                    else {
+                        Write-BoxstarterMessage "Exit Code '$errorCode' is no reason to reboot" -Verbose 
+                        if ($stopOnFirstError) {
+                            Write-BoxstarterMessage "Exiting because 'StopOnPackageFailure' is set."
+                            Stop-Timedsection $session
+                            Remove-ChocolateyPackageInProgress $packageName
+                            exit 1
+                        }
+                    }
+                }
+                $idx += 1
+            }
+        }
+        Stop-Timedsection $session
+        if ($Boxstarter.IsRebooting -or $rebootable) {
+            Remove-ChocolateyPackageInProgress $packageName
+            Invoke-Reboot
         }
     }
+}
+
+<#
+.SYNOPSIS
+check if a parameter/switch is present in a list of arguments
+(1-to many dashes followed by the parameter name)
+
+#>
+function Get-PassedSwitch {
+    [CmdletBinding()]
+    param(
+        # the name of the argument switch to look for in $OriginalArgs
+        [Parameter(Mandatory = $True)]
+        [string]$SwitchName,
+
+        # the full list of original parameters (probably $args)
+        [Parameter(Mandatory = $False)]
+        [string[]]$OriginalArgs
+    )
+    return [bool]($OriginalArgs | Where-Object { $_ -match "^-+$SwitchName$" })
+}
+
+<#
+.SYNOPSIS
+    Guess what parts of a choco invocation line are package names.
+    (capture everything but named parameters and swtiches)
+.EXAMPLE
+    PS C:\> Get-PackageNamesFromInvocationLine @("-y", "foo", "bar", "-source", "https://myserver.org/choco")
+    will
+        * ignore '-y' (as it's not in the known named parameter set)
+        * accept "foo" as first package name
+        * accept "bar" as second package name
+        * ignore '-source' as it's a known named parameter and therefore also skip 'https://myserver.org.choco'
+    finally returning @("foo", "bar")
+#>
+function Get-PackageNamesFromInvocationLine {
+    [CmdletBinding()]
+    param(
+        [PSObject[]]
+        $InvocationArguments
+    )
+
+    $packageNames = @()
+
+    # NOTE: whenever a new named parameter is added to chocolatey, make sure to update this list ...
+    # we somehow need to know what parameters are named and can take a value
+    # - if we don't know, the parameter's value will be treated as package name
+    $namedParameters = @("force:", # -force:$bool is a zebra
+        "s", "source", 
+        "log-file",
+        "version",
+        "ia", "installargs", "installarguments", "install-arguments",
+        "override", "overrideargs", "overridearguments", "override-arguments",
+        "params", "parameters", "pkgparameters", "packageparameters", "package-parameters",
+        "user", "password", "cert", "cp", "certpassword",
+        "checksum", "downloadchecksum", "checksum64", "checksumx64", "downloadchecksumx64",
+        "checksumtype", "checksum-type", "downloadchecksumtype",
+        "checksumtype64", "checksumtypex64", "checksum-type-x64", "downloadchecksumtypex64",
+        "timeout", "execution-timeout",
+        "cache", "cachelocation", "cache-location",
+        "proxy", "proxy-user", "proxy-password", "proxy-bypass-list",
+        "viruspositivesmin", "virus-positives-minimum",
+        "install-arguments-sensitive", "package-parameters-sensitive",
+        "dir", "directory", "installdir", "installdirectory", "install-dir", "install-directory",
+        "bps", "maxdownloadrate", "max-download-rate", "maxdownloadbitspersecond", "max-download-bits-per-second", 
+        "maximumdownloadbitspersecond", "maximum-download-bits-per-second")
+
+    $skipNext = $false
+    foreach ($a in $InvocationArguments) {
+        if ($skipNext) {
+            # the last thing we've seen is a named parameter
+            # skip it's value and continue
+            $skipNext = $false
+            continue
+        }
+
+        # we try to match anything starting with dashes, 
+        # as it will always be a parameter or switch
+        # (and thus is not a package name)
+        if ($a -match "^-.+") {
+            $param = $a -replace "^-+"
+            if ($namedParameters -contains $param) {
+                $skipNext = $true
+            }
+            elseif ($param.IndexOf('=') -eq $param.Length - 1) {
+                $skipNext = $true
+            }
+        }
+        elseif ($a -eq '=') {
+            $skipNext = $true
+        }
+        else {
+            $packageNames += $a
+        }
+    }
+    $packageNames
+}
+
+function Get-PassedArg {
+    [CmdletBinding()]
+    param(
+        [string[]]
+        $ArgumentName,
+
+        [PSObject[]]
+        $OriginalArgs
+    )
+
+    $candidateKeys = @()
+    $ArgumentName | Foreach-Object {
+        $candidateKeys += "-$_"
+        $candidateKeys += "--$_"
+    }
+    $nextIsValue = $false
+    $val = $null
+
+    foreach ($a in $OriginalArgs) {
+        if ($nextIsValue) {
+            $nextIsValue = $false
+            $val = $a
+            break;
+        }
+
+        if ($candidateKeys -contains $a) {
+            $nextIsValue = $true
+        }
+        elseif ($a.ToString().Contains("=")) {
+            $parts = $a.split("=", 2)
+            $nextIsValue = $false
+            $val = $parts[1]
+        }
+    }
+
+    return $val
+}
+
+function Test-WindowsFeatureInstall($passedArgs) {
+    (Get-PassedArg -ArgumentName @("source", "s") -OriginalArgs $passedArgs) -eq "WindowsFeatures"
 }
 
 function Call-Chocolatey {
-    if($PSBoundParameters.Keys -notcontains "Source"){
-        $PSBoundParameters.Source = "$($Boxstarter.LocalRepo);$((Get-BoxstarterConfig).NugetSources)"
-    }
-    ."$env:ChocolateyInstall\chocolateyinstall\chocolatey.ps1" @PSBoundParameters
-}
-
-function Intercept-Command {
     param(
-        $commandName, 
-        $targetCommand = "$env:ChocolateyInstall\chocolateyinstall\chocolatey.ps1",
-        [switch]$omitCommandParam
+        [string]
+        $Command,
+
+        [string[]]
+        $PackageNames = @('')
     )
-    $metadata=Get-MetaData $targetCommand
-    $srcMetadata=Get-MetaData $commandName
-    if($commandName.Split("\").Length -eq 2){
-        $commandName = $commandName.Substring($commandName.IndexOf("\")+1)
+
+    $chocoArgs = @($Command, $PackageNames)
+    $chocoArgs += Format-ExeArgs -Command $Command @args
+    $chocoArgsExpanded = $chocoArgs | Foreach-Object { "$($_); " }
+    Write-BoxstarterMessage "Passing the following args to Chocolatey: @($chocoArgsExpanded)" -Verbose
+
+    $currentLogging = $Boxstarter.Suppresslogging
+    try {
+        if (Test-WindowsFeatureInstall $args) { 
+            $Boxstarter.SuppressLogging = $true 
+        }
+        if (($PSVersionTable.CLRVersion.Major -lt 4 -or (Test-WindowsFeatureInstall $args)) -and (Get-IsRemote)) {
+            Invoke-ChocolateyFromTask $chocoArgs
+        }
+        else {
+            Invoke-LocalChocolatey $chocoArgs
+        }
     }
-    $metadata.Parameters.Remove("Verbose") | out-null
-    $metadata.Parameters.Remove("Debug") | out-null
-    $metadata.Parameters.Remove("ErrorAction") | out-null
-    $metadata.Parameters.Remove("WarningAction") | out-null
-    $metadata.Parameters.Remove("ErrorVariable") | out-null
-    $metadata.Parameters.Remove("WarningVariable") | out-null
-    $metadata.Parameters.Remove("OutVariable") | out-null
-    $metadata.Parameters.Remove("OutBuffer") | out-null
-    if($omitCommandParam) {
-        $metadata.Parameters.Remove("command") | out-null
+    finally {
+        $Boxstarter.SuppressLogging = $currentLogging
     }
-    $params = [Management.Automation.ProxyCommand]::GetParamBlock($metadata)    
-    if($srcMetadata.Parameters.count -gt 0) {
-        $srcParams = [Management.Automation.ProxyCommand]::GetParamBlock($srcMetadata)    
-        $params += ",`r`n" + $srcParams
+
+    $restartFile = "$(Get-BoxstarterTempDir)\Boxstarter.$PID.restart"
+    if (Test-Path $restartFile) {
+        Write-BoxstarterMessage "found $restartFile we are restarting"
+        $Boxstarter.IsRebooting = $true
+        remove-item $restartFile -Force
     }
-    $cmdLetBinding = [Management.Automation.ProxyCommand]::GetCmdletBindingAttribute($metadata)
-    $strContent = (Get-Content function:\$commandName).ToString()
-    if($strContent -match "param\(.+\)") {
-        $strContent = $strContent.Replace($matches[0],"")
-    }
-    Set-Item Function:\$commandName -value "$cmdLetBinding `r`n param ( $params )Process{ `r`n$strContent}" -force
 }
 
-function Get-MetaData ($command){
-    $cmdDef = Get-Command $command | ? {$_.CommandType -ne "Application"}
-    return New-Object System.Management.Automation.CommandMetaData ($cmdDef)
-}
-function Intercept-Chocolatey {
-    if($Script:BoxstarterIntrercepting){return}
-    Intercept-Command cinst -omitCommandParam
-    Intercept-Command cup -omitCommandParam
-    Intercept-Command cinstm -omitCommandParam
-    Intercept-Command chocolatey
-    Intercept-Command choco
-    Intercept-Command call-chocolatey
-    $Script:BoxstarterIntrercepting=$true
+function Invoke-ChocolateyFromTask($chocoArgs) {
+    Invoke-BoxstarterFromTask "Invoke-Chocolatey $(Serialize-Array $chocoArgs)"
 }
 
-function Add-DefaultRebootCodes($codes) {
-    if($codes -eq $null){$codes=@()}
-    $codes += 3010 #common MSI reboot needed code
-    $codes += -2067919934 #returned by SQL Server when it needs a reboot
-    return $codes
+function Invoke-LocalChocolatey($chocoArgs) {
+    if (Get-IsRemote) {
+        $global:Boxstarter.DisableRestart = $true
+    }
+    Export-BoxstarterVars
+
+    Enter-DotNet4 {
+        if ($env:BoxstarterVerbose -eq 'true') {
+            $global:VerbosePreference = "Continue"
+        }
+
+        Import-Module "$($args[1].BaseDir)\Boxstarter.chocolatey\Boxstarter.chocolatey.psd1" -DisableNameChecking
+        Invoke-Chocolatey $args[0]
+    } $chocoArgs, $Boxstarter
+}
+
+function Format-ExeArgs {
+    param(
+        [string]
+        $Command
+    )
+
+    $newArgs = @()
+    $forceArg = $false
+    $args | ForEach-Object {
+        $p = [string]$_
+        Write-BoxstarterMessage  "p: $p" -Verbose
+        if ($forceArg) {
+            $forceArg = $false
+            if ($p -eq "True") {
+                $p = "-f"
+            } 
+            else {
+                return
+            }
+        }
+        elseif ($p -eq "-force:") {
+            $forceArg = $true
+            return
+        }
+        elseif ($p.StartsWith("-") -and $p.Contains("=")) {
+            $pts = $p.split("=", 2)
+            $newArgs += $pts[0]
+            $p = $pts[1]
+        }
+
+        $newArgs += $p
+    }
+
+    if ($null -eq (Get-PassedArg -ArgumentName @("source", "s") -OriginalArgs $args)) {
+        if (@("Install", "Upgrade") -contains $Command) {
+            $newArgs += "-Source"
+            $newArgs += "$($Boxstarter.LocalRepo);$((Get-BoxstarterConfig).NugetSources)"
+        }
+    }
+
+    if ($newArgs -notcontains "-Verbose") {
+        if ($global:VerbosePreference -eq "Continue") {
+            $newArgs += "-Verbose"
+        }
+    }
+
+    if ($newArgs -notcontains "-y") {
+        $newArgs += '-y'
+    }
+    $newArgs
+}
+
+function Add-DefaultRebootCodes {
+    [CmdletBinding()]
+    param(
+        [PSObject[]]
+        $Codes
+    )
+
+    if ($Codes -notcontains 3010) {
+        $Codes += 3010 #common MSI reboot needed code
+    }
+    if ($Codes -notcontains -2067919934) {
+        $Codes += -2067919934 #returned by SQL Server when it needs a reboot
+    }
+    return $Codes
 }
 
 function Remove-ChocolateyPackageInProgress($packageName) {
-    $pkgDir = (dir $env:ChocolateyInstall\lib\$packageName.*)
-    if($pkgDir.length -gt 0) {$pkgDir = $pkgDir[-1]}
-    if($pkgDir -ne $null) {
-        remove-item $pkgDir -Recurse -Force -ErrorAction SilentlyContinue  
+    $pkgDir = "$env:ChocolateyInstall\lib\$packageName"
+    if (Test-Path $pkgDir) {
+        Write-BoxstarterMessage "Removing $pkgDir in progress" -Verbose
+        remove-item $pkgDir -Recurse -Force -ErrorAction SilentlyContinue
     }
 }
 
-function Expand-Splat($splat){
-    $ret=""
-    ForEach($item in $splat.KEYS.GetEnumerator()) {
-        $ret += "-$item$(Resolve-SplatValue $splat[$item]) " 
+function Expand-Splat($splat) {
+    $ret = ""
+    ForEach ($item in $splat.KEYS.GetEnumerator()) {
+        $ret += "-$item$(Resolve-SplatValue $splat[$item]) "
     }
+    Write-BoxstarterMessage "Expanded splat to $ret"
     return $ret
 }
 
-function Resolve-SplatValue($val){
-    if($val -is [switch]){
-        if($val.IsPresent){
+function Resolve-SplatValue($val) {
+    if ($val -is [switch]) {
+        if ($val.IsPresent) {
             return ":`$True"
         }
-        else{
+        else {
             return ":`$False"
         }
     }
-    if($val -is [Array]){
-        $ret=" @("
-        $firstVal=$False
-        foreach($arrayVal in $val){
-            if($firstVal){$ret+=","}
-            if($arrayVal -is [int]){
-                $ret += "$arrayVal"
-            }
-            else{
-                $ret += "`"$arrayVal`""
-            }
-
-            $firstVal=$true
-        }
-        $ret += ")"
-        return $ret
-    }
-    $ret = " `"$($val.Replace('"','`' + '"'))`""
-    return $ret
+    return " $(ConvertTo-PSString $val)"
 }
 
-function Wait-ForMSIEXEC{
-    Do{
-        Get-Process | ? {$_.Name -eq "MSIEXEC"} | % {
-            if(!($_.HasExited)){
-                $proc=Get-WmiObject -Class Win32_Process -Filter "ProcessID=$($_.Id)"
-                if($proc.CommandLine -ne $null -and $proc.CommandLine.EndsWith(" /V")){ break }
+function Wait-ForMSIEXEC {
+    Write-BoxstarterMessage "Checking for other running MSIEXEC installers..." -Verbose
+    Do {
+        Get-Process | Where-Object { $_.Name -eq "MSIEXEC" } | Foreach-Object {
+            if (!($_.HasExited)) {
+                $proc = Get-WmiObject -Class Win32_Process -Filter "ProcessID=$($_.Id)"
+                if ($null -ne $proc.CommandLine -and $proc.CommandLine.EndsWith(" /V")) { 
+                    break 
+                }
                 Write-BoxstarterMessage "Another installer is running: $($proc.CommandLine). Waiting for it to complete..."
                 $_.WaitForExit()
             }
         }
-    } Until ((Get-Process | ? {$_.Name -eq "MSIEXEC"} ) -eq $null)
+    } Until ($null -eq (Get-Process | Where-Object { $_.Name -eq "MSIEXEC" } ))
+}
+
+function Export-BoxstarterVars {
+    $boxstarter.keys | ForEach-Object {
+        Export-ToEnvironment "Boxstarter.$_"
+    }
+    if ($script:BoxstarterPassword) {
+        Export-ToEnvironment "BoxstarterPassword" script
+    }
+    Export-ToEnvironment "VerbosePreference" global
+    Export-ToEnvironment "DebugPreference" global
+    $env:BoxstarterSourcePID = $PID
+}
+
+function Export-ToEnvironment($varToExport, $scope) {
+    $val = Invoke-Expression "`$$($scope):$varToExport"
+    if ($val -is [string] -or $val -is [boolean]) {
+        Set-Item -Path "Env:\BEX.$varToExport" -Value $val.ToString() -Force
+    }
+    elseif ($null -eq $val) {
+        Set-Item -Path "Env:\BEX.$varToExport" -Value '$null' -Force
+    }
+    Write-BoxstarterMessage "Exported $varToExport from $PID to `$env:BEX.$varToExport with value $val" -verbose
+}
+
+function Serialize-BoxstarterVars {
+    $res = ""
+    $boxstarter.keys | Foreach-Object {
+        $res += "`$global:Boxstarter['$_']=$(ConvertTo-PSString $Boxstarter[$_])`r`n"
+    }
+    if ($script:BoxstarterPassword) {
+        $res += "`$script:BoxstarterPassword='$($script:BoxstarterPassword)'`r`n"
+    }
+    $res += "`$global:VerbosePreference='$global:VerbosePreference'`r`n"
+    $res += "`$global:DebugPreference='$global:DebugPreference'`r`n"
+    Write-BoxstarterMessage "Serialized boxstarter vars to:" -verbose
+    Write-BoxstarterMessage $res -verbose
+    $res
+}
+
+function Import-FromEnvironment ($varToImport, $scope) {
+    if (!(Test-Path "Env:\$varToImport")) { 
+        return 
+    }
+    [object]$ival = (Get-Item "Env:\$varToImport").Value.ToString()
+
+    if ($ival.ToString() -eq 'True') { 
+        $ival = $true 
+    }
+    if ($ival.ToString() -eq 'False') {
+        $ival = $false 
+    }
+    if ($ival.ToString() -eq '$null') {
+        $ival = $null 
+    }
+
+    Write-BoxstarterMessage "Importing $varToImport from $env:BoxstarterSourcePID to $PID with value $ival" -Verbose
+
+    $newVar = $varToImport.Substring('BEX.'.Length)
+    Invoke-Expression "`$$($scope):$newVar=$(ConvertTo-PSString $ival)"
+
+    remove-item "Env:\$varToImport"
+}
+
+function Import-BoxstarterVars {
+    Write-BoxstarterMessage "Importing Boxstarter vars into pid $PID from pid: $($env:BoxstarterSourcePID)" -verbose
+    Import-FromEnvironment "BEX.BoxstarterPassword" script
+
+    $varsToImport = @()
+    Get-ChildItem -Path env: | Where-Object { $_.Name.StartsWith('BEX.') } | ForEach-Object { $varsToImport += $_.Name }
+
+    $varsToImport | ForEach-Object { Import-FromEnvironment $_ global }
+
+    $boxstarter.SourcePID = $env:BoxstarterSourcePID
+}
+
+function ConvertTo-PSString($originalValue) {
+    if ($originalValue -is [int] -or $originalValue -is [int64]) {
+        "$originalValue"
+    }
+    elseif ($originalValue -is [Array]) {
+        Serialize-Array $originalValue
+    }
+    elseif ($originalValue -is [boolean]) {
+        "`$$($originalValue.ToString())"
+    }
+    elseif ($null -ne $originalValue) {
+        "`"$($originalValue.ToString().Replace('"','`' + '"'))`""
+    }
+    else {
+        "`$null"
+    }
+}
+
+function Serialize-Array($chocoArgs) {
+    $first = $false
+    $res = "@("
+    $chocoArgs | Foreach-Object {
+        if ($first) { 
+            $res += "," 
+        }
+        $res += ConvertTo-PSString $_
+        $first = $true
+    }
+    $res += ")"
+    $res
 }

@@ -4,16 +4,16 @@ Description = 'Provides an unattended installation environment supporting automa
 ModuleToProcess = './boxstarter.bootstrapper.psm1'
 
 # Version number of this module.
-ModuleVersion = '2.4.128'
+ModuleVersion = '2.13.0'
 
 # ID used to uniquely identify this module
 GUID = 'bbdb3e8b-9daf-4c00-a553-4f3f88fb6e50'
 
 # Author of this module
-Author = 'Matt Wrock'
+Author = 'Chocolatey Software, Inc'
 
 # Copyright statement for this module
-Copyright = '(c) 2014 Matt Wrock'
+Copyright = '(c) 2018 Chocolatey Software, Inc, 2012 - 2018 Matt Wrock'
 
 # Minimum version of the Windows PowerShell engine required by this module
 PowerShellVersion = '2.0'
@@ -43,7 +43,7 @@ AliasesToExport = '*'
 # FileList = @()
 
 # Private data to pass to the module specified in RootModule/ModuleToProcess
-PrivateData = 'ee4a2c9c19ef480ba03f45394590dedf5a5834d3'
+PrivateData = '8459d49a8d5a049d8936519ccf045706c7b3eb23'
 
 # Default prefix for commands exported from this module. Override the default prefix using Import-Module -Prefix.
 # DefaultCommandPrefix = ''

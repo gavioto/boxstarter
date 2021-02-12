@@ -3,13 +3,13 @@ $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 function Mount-TestVHD {
     $testRoot="$env:temp\Boxstarter.tests"
     Get-PSDrive | Out-Null
-    $before = (Get-Volume).DriveLetter
+    $before = (Get-Volume).DriveLetter | ? { $_ -ne $null }
     Mount-VHD $testRoot\test.vhdx
-    $after = (Get-Volume).DriveLetter
+    $after = (Get-Volume).DriveLetter | ? { $_ -ne $null }
     $winVolume = compare $before $after -Passthru
     Get-PSDrive | Out-Null
-    reg load HKLM\VHDSYS "$($winVolume):\windows\system32\config\system" 2>&1 | out-null
-    reg load HKLM\VHDSOFTWARE "$($winVolume):\windows\system32\config\software" 2>&1 | out-null
+    reg load HKLM\VHDSYS "$($winVolume):\windows\system32\config\system" 2>&1 | Out-Null
+    reg load HKLM\VHDSOFTWARE "$($winVolume):\windows\system32\config\software" 2>&1 | Out-Null
 }
 
 function Clean-VHD {
@@ -27,17 +27,19 @@ function Clean-VHD {
 Describe "Enable-BoxstarterVHD" {
     try{
         Remove-Module boxstarter.*
-        Resolve-Path $here\..\..\boxstarter.common\*.ps1 | 
+        Resolve-Path $here\..\..\boxstarter.common\*.ps1 |
         % { . $_.ProviderPath }
-        Resolve-Path $here\..\..\boxstarter.HyperV\*.ps1 | 
+        Resolve-Path $here\..\..\boxstarter.Chocolatey\*.ps1 |
+        % { . $_.ProviderPath }
+        Resolve-Path $here\..\..\boxstarter.HyperV\*.ps1 |
         % { . $_.ProviderPath }
         $Boxstarter.SuppressLogging=$true
         mkdir $env:temp\Boxstarter.tests -force | Out-Null
         $testRoot="$env:temp\Boxstarter.tests"
-        $v = new-vhd -Path $testRoot\test.vhdx -SizeBytes 200MB | 
-          Mount-VHD -PassThru | 
-          Initialize-Disk -PartitionStyle mbr -Confirm:$false -PassThru | 
-          New-Partition -UseMaximumSize -AssignDriveLetter -MbrType IFS | 
+        $v = new-vhd -Path $testRoot\test.vhdx -SizeBytes 200MB |
+          Mount-VHD -PassThru |
+          Initialize-Disk -PartitionStyle mbr -Confirm:$false -PassThru |
+          New-Partition -UseMaximumSize -AssignDriveLetter -MbrType IFS |
           Format-Volume -NewFileSystemLabel "VHD" -Confirm:$false
         Get-PSDrive | Out-Null
         mkdir "$($v.DriveLetter):\Windows\System32\config" | Out-Null
@@ -54,11 +56,10 @@ Describe "Enable-BoxstarterVHD" {
             Remove-ItemProperty -path "HKLM:\VHDSOFTWARE\Microsoft\Windows\CurrentVersion\Policies\system" -name LocalAccountTokenFilterPolicy -ErrorAction SilentlyContinue
             Set-ItemProperty -path "HKLM:\VHDSYS\ControlSet00$current\Control\ComputerName\ComputerName" -Name ComputerName -value "$computerName"
             [GC]::Collect()
-            reg unload HKLM\VHDSYS | out-null
-            reg unload HKLM\VHDSOFTWARE | out-null
+            reg unload HKLM\VHDSYS | Out-Null
+            reg unload HKLM\VHDSOFTWARE | Out-Null
             Dismount-VHD $testRoot\test.vhdx
             Get-PSDrive | Out-Null
-
             $result = Enable-BoxstarterVHD $testRoot\test.vhdx
 
             Mount-TestVHD
@@ -85,11 +86,11 @@ Describe "Enable-BoxstarterVHD" {
             $current=Get-CurrentControlSet
             Disable-FireWallRule WMI-RPCSS-In-TCP
             Disable-FireWallRule WMI-WINMGMT-In-TCP
-            Remove-ItemProperty -path "HKLM:\VHDSOFTWARE\Microsoft\Windows\CurrentVersion\Policies\system" -name LocalAccountTokenFilterPolicy
+            Remove-ItemProperty -path "HKLM:\VHDSOFTWARE\Microsoft\Windows\CurrentVersion\Policies\system" -name LocalAccountTokenFilterPolicy -ErrorAction SilentlyContinue
             Set-ItemProperty -path "HKLM:\VHDSYS\ControlSet00$current\Control\ComputerName\ComputerName" -Name ComputerName -value "$computerName"
             [GC]::Collect()
-            reg unload HKLM\VHDSYS | out-null
-            reg unload HKLM\VHDSOFTWARE | out-null
+            reg unload HKLM\VHDSYS | Out-Null
+            reg unload HKLM\VHDSOFTWARE | Out-Null
             Dismount-VHD $testRoot\test.vhdx
             Get-PSDrive | Out-Null
 
@@ -122,8 +123,8 @@ Describe "Enable-BoxstarterVHD" {
             Remove-ItemProperty -path "HKLM:\VHDSOFTWARE\Microsoft\Windows\CurrentVersion\Policies\system" -name LocalAccountTokenFilterPolicy -ErrorAction SilentlyContinue
             Set-ItemProperty -path "HKLM:\VHDSYS\ControlSet00$current\Control\ComputerName\ComputerName" -Name ComputerName -value "$computerName"
             [GC]::Collect()
-            reg unload HKLM\VHDSYS | out-null
-            reg unload HKLM\VHDSOFTWARE | out-null
+            reg unload HKLM\VHDSYS | Out-Null
+            reg unload HKLM\VHDSOFTWARE | Out-Null
             Dismount-VHD $testRoot\test.vhdx
             Get-PSDrive | Out-Null
 
@@ -197,9 +198,9 @@ Describe "Enable-BoxstarterVHD" {
         Context "When the vhd is not a system volume" {
             $testRoot="$env:temp\Boxstarter.tests"
             Get-PSDrive | Out-Null
-            $before = (Get-Volume).DriveLetter
+            $before = (Get-Volume).DriveLetter | ? { $_ -ne $null }
             Mount-VHD $testRoot\test.vhdx
-            $after = (Get-Volume).DriveLetter
+            $after = (Get-Volume).DriveLetter | ? { $_ -ne $null }
             $winVolume = compare $before $after -Passthru
             Remove-Item "$($winVolume):\Windows\System32\config" -recurse -Force
             Dismount-VHD $testRoot\test.vhdx
@@ -214,7 +215,7 @@ Describe "Enable-BoxstarterVHD" {
             It "Should throw a InvalidOperation Exception"{
                 $err.CategoryInfo.Reason | should be "InvalidOperationException"
             }
-        }        
+        }
     }
     finally{
         [GC]::Collect()
@@ -224,7 +225,7 @@ Describe "Enable-BoxstarterVHD" {
             Dismount-VHD $testRoot\test.vhdx -ErrorAction SilentlyContinue
             Remove-Item $testRoot\test.vhdx
         }
-        del $env:temp\Boxstarter.tests -recurse -force
+        del $env:temp\Boxstarter.tests -recurse -force -ErrorAction SilentlyContinue
         Get-Process Explorer | Stop-Process
     }
 }

@@ -8,28 +8,28 @@
 }
 
 <p>
-    The Boxstarter TestRunner module can test <a href="http://chocolatwey.org">Chocolatey</a> package installs
+    The Boxstarter TestRunner module can test <a href="https://chocolatey.org">Chocolatey</a> package installs
     on one or more deployment targets and evaluate whether the installation
     was successful. The TestRunner module can also be used to automate
-    the publishing of Chocolatey packages to a <a href="http://nuget.org">Nuget</a> feed. That may be
-    the public chocolatey feed or a private feed.
+    the publishing of Chocolatey packages to a <a href="https://nuget.org">NuGet</a> feed. That may be
+    the public Chocolatey community feed or a private feed.
 </p>
-<p>The TestRunner module can be downloaded and installed via chocolatey by running:</p>
+<p>The TestRunner module can be downloaded and installed via Chocolatey by running:</p>
 <pre>cinst Boxstarter.TestRunner</pre>
 
 <h3>Configuring the Local Boxstarter Repository</h3>
 <p>
-    Boxstarter needs to know where your repository of chocolatey packages
+    Boxstarter needs to know where your repository of Chocolatey packages
     is located. The Boxstarter repository is a single directory on disk
     that contains one subdirectory per package. By default, Boxstarter
     maintains this directory in a directory called <code>BuildPackages</code> inside
-    the same root directory where the Boxstarter modules reside. See <a href="CreatingPackages.cshtml">Creating Packages</a> 
+    the same root directory where the Boxstarter modules reside. See <a href="CreatingPackages.cshtml">Creating Packages</a>
     for detailed information on using Boxstarter commands to simplify package creation. All
     Boxstarter commands that create and build packages act within this
     directory. The repository location can be found using the <code>$boxstarter</code>
     settings variable in <code>$Boxstarter.LocalRepo</code>.
 </p>
-<img src="Images/repoDir.png" />
+<img class="img-responsive" src="Images/repoDir.png" />
 <p>This location can be changed using the <code>Set-BoxstarterConfig</code> command.</p>
 <pre>Set-BoxStarterConfig -LocalRepo "c:\dev\Chocolatey-Packages"</pre>
 <p>
@@ -37,7 +37,7 @@
     boxstarter repository with <code>Set-BoxstarterConfig</code> all future
     interactions with the Boxstarter repository will act on this location.
     To temporarily change the repository location just for the current
-    powershell session, one can change the value of <code>$Boxstarter.LocalRepo</code>
+    PowerShell session, one can change the value of <code>$Boxstarter.LocalRepo</code>
     directly.
 </p>
 <pre>$Boxstarter.LocalRepo = "c:\dev\Chocolatey-Packages"</pre>
@@ -46,7 +46,7 @@
     Boxstarter tests Chocolatey packages by deploying and installing the
     package to one or more deployment targets. The deployment options include
     settings that control what computers to use to test the packages, the
-    credentials to use, VM checkpoints to restore as well as nuget feed and
+    credentials to use, VM checkpoints to restore as well as NuGet feed and
     API key for publishing successful packages.
 </p>
 <p>
@@ -68,20 +68,20 @@ Set-BoxstarterDeployOptions -DeploymentTargetCredentials $cred `
     hosted in the ServiceName cloud service using the Admin credential. Prior to
     testing a package install, the VM will be restored to the clean
     checkpoint. If packages are published using <code>Publish-BoxstarterPackage</code> and are not associated with a
-    Nuget feed, they will publish to the mywackyfeed on <a href="http://myget.org">myget.org</a> using API
+    NuGet feed, they will publish to the mywackyfeed on <a href="https://myget.org">myget.org</a> using API
     Key 5cbc38d9-1a94-430d-8361-685a9080a6b8.
 </p>
 <p>
-    Currently the available Boxstarter VM providers are Azure and HyperV. Any VM regardless of hypervisor 
-    implementation can be used by passing in the names of the computers as the deployment targets. However, 
-    use of Boxstarter VM providers are necessary in order to take advantage of checkpoints. 
+    Currently the available Boxstarter VM providers are Azure and HyperV. Any VM regardless of hypervisor
+    implementation can be used by passing in the names of the computers as the deployment targets. However,
+    use of Boxstarter VM providers are necessary in order to take advantage of checkpoints.
 </p>
 <p>
-    The default deployment options deploy locally using the credentials of the current user and publish to the public chocolatey feed.
+    The default deployment options deploy locally using the credentials of the current user and publish to the public Chocolatey community feed.
 </p>
 <p>
     Individual packages in a Boxstarter repository
-    can be published to different feeds. The nuget feed and API Key configured
+    can be published to different feeds. The NuGet feed and API Key configured
     using <code>Set-BoxstarterDeploymentOptions</code> are default settings used if a package
     has not been individually assigned to its own feed.
 </p>
@@ -121,7 +121,7 @@ Test-BoxstarterPackage -PackageName "MyPackage1","MyPackage2"
     is greater than the published version, Boxstarter will initiate a test on
     the deployment targets otherwise the package test will be skipped.
 </p>
-<img src="Images/CI.png" />
+<img class="img-responsive" src="Images/CI.png" />
 <h3>Publishing Successful Packages</h3>
 <p>
     <code>Test-BoxstarterPackage</code> will return a set of test results. One can then use
@@ -197,7 +197,7 @@ Mode                LastWriteTime     Length Name
         If you administer your own build server, there is some one time setup that
         you need to perform to integrate Boxstarter TestRunner tests and
         automatic package publishing. This must be performed on the build machine
-        that will run the builds (a remote powershell session is acceptable). In
+        that will run the builds (a remote PowerShell session is acceptable). In
         many build systems, this may be a different machine from the central server,
         in TFS it would be the build "controller" or in TeamCity the build "agent."
         Also, these steps must be performed using the credentials of the SAME USER
@@ -207,7 +207,7 @@ Mode                LastWriteTime     Length Name
         <li>
             Install the Boxstarter TestRunner module on the build machine. You can
             use Chocolatey and run <code>cinst Boxstarter.TestRunner</code> or launch
-            http://boxstarter.org/package/nr/boxstarter.testrunner from IE.
+            https://boxstarter.org/package/nr/boxstarter.testrunner from IE.
         </li>
         <li>
             <p>
@@ -271,7 +271,7 @@ Set-BoxstarterDeployOptions -DeploymentTargetCredentials $cred `
                     <code>AzureSubscriptionCertificate</code> - The Azure subscription certificate to use when using Azure VMs as deployment targets. This is the Base64 encoded content of the certificate and can be found in the ManagementCertificate attribute of your Azure publish settings file.
                 </li>
             </ul>
-            <img src="Images/tfs.png"/>
+            <img class="img-responsive" src="Images/tfs.png"/>
             <p>
                 NOTE: All of these MSBuild script parameters are optional for dedicated
                 builds as long as the values were provided in steps 2 and 3 above which

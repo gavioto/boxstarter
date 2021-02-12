@@ -1,19 +1,19 @@
 function Publish-BoxstarterPackage {
 <#
 .SYNOPSIS
-Publishes a package to a Nuget feed
+Publishes a package to a NuGet feed
 
 .DESCRIPTION
-Publishes a package in the Boxstarter local repository to the Nuget feed 
-it is associated with and using the API key that the feed has been 
-assigned to. Set-BoxstarterPackageNugetFeed and Set-BoxstarterFeedAPIKey 
-can be used to set the feed assigned to a package and the API key assigned 
-to a feed. If no feed is explicitly assigned to a package, then the 
-Default Nuget Feed of the BoxstarterDeployOptions is used. This can be set 
-using Set-BoxstarterDeployOptions and if no default feed is set, the public 
-chocolatey feed is used. A package feed can be cleared by using 
-Remove-BoxstarterPackageNugetFeed. It will then use the default nuget feed. 
-If you want to ensure that a package is never associated with a feed 
+Publishes a package in the Boxstarter local repository to the NuGet feed
+it is associated with and using the API key that the feed has been
+assigned to. Set-BoxstarterPackageNugetFeed and Set-BoxstarterFeedAPIKey
+can be used to set the feed assigned to a package and the API key assigned
+to a feed. If no feed is explicitly assigned to a package, then the
+Default NuGet Feed of the BoxstarterDeployOptions is used. This can be set
+using Set-BoxstarterDeployOptions and if no default feed is set, the public
+Chocolatey community feed is used. A package feed can be cleared by using
+Remove-BoxstarterPackageNugetFeed. It will then use the default NuGet feed.
+If you want to ensure that a package is never associated with a feed
 including the default feed, use Set-BoxstarterPackageNugetFeed and set
 the feed to $null.
 
@@ -26,13 +26,13 @@ Set-BoxstarterPackageNugetFeed -PackageName MyPackage -NugetFeed https://www.myg
 Set-BoxstarterFeedAPIKey -NugetFeed https://www.myget.org/F/MyFeed/api/v2 -APIKey 2d2cfb67-8203-45d8-8a00-4e737f517c79
 Publish-BoxstarterPackage MyPackage
 
-Assigns the MyGet MyFeed to MyPackage and sets 
-2d2cfb67-8203-45d8-8a00-4e737f517c79 as its API Key. When 
-Publish-BoxstarterPackage is called for MyPackage, it is published to the 
+Assigns the MyGet MyFeed to MyPackage and sets
+2d2cfb67-8203-45d8-8a00-4e737f517c79 as its API Key. When
+Publish-BoxstarterPackage is called for MyPackage, it is published to the
 MyFeed feed on MyGet.org using 2d2cfb67-8203-45d8-8a00-4e737f517c79.
 
 .LINK
-http://boxstarter.org
+https://boxstarter.org
 Get-BoxstarterPackageNugetFeed
 Set-BoxstarterPackageNugetFeed
 Remove-BoxstarterPackageNugetFeed
@@ -48,7 +48,7 @@ Set-BoxstarterFeedAPIKey
     process {
         $PackageName | % {
             $err = $null
-            $pkg = Get-BoxstarterPackage $_ 
+            $pkg = Get-BoxstarterPackage $_
             if($pkg -eq $null) {
                 $err = "Could not find a package with ID $_ in the repository."
                 Write-Error $err -Category InvalidArgument
@@ -63,8 +63,8 @@ Set-BoxstarterFeedAPIKey
             }
             else {
                 $err = @()
-                $nupkg = join-path $Boxstarter.LocalRepo "$_.$($pkg.Version).nupkg"
-                Write-BoxstarterMessage "Calling nuget: push $nupkg $(Get-BoxstarterFeedAPIKey $pkg.Feed) -Source $($pkg.Feed)/package -NonInteractive" -Verbose
+                $nupkg = Join-Path $Boxstarter.LocalRepo "$_.$($pkg.Version).nupkg"
+                Write-BoxstarterMessage "Calling NuGet: push $nupkg $(Get-BoxstarterFeedAPIKey $pkg.Feed) -Source $($pkg.Feed)/package -NonInteractive" -Verbose
                 $err += Invoke-NugetPush $pkg $nupkg 2>&1
                 try {
                     for($count = 1; $count -le 5; $count++) {
@@ -78,7 +78,7 @@ Set-BoxstarterFeedAPIKey
                     $err += $_
                 }
                 if($publishedVersion -eq $null -or $publishedVersion -ne $pkg.Version) {
-                    write-Error ($err -join ", " )
+                    Write-Error ($err -join ", " )
                 }
                 else {
                     $err = $null
@@ -95,6 +95,6 @@ Set-BoxstarterFeedAPIKey
 }
 
 function Invoke-NugetPush ($pkg,$nupkg) {
-    $nuget="$env:ChocolateyInstall\chocolateyinstall\Nuget.exe"
+    $nuget="$env:ChocolateyInstall\chocolateyinstall\NuGet.exe"
     .$nuget push $nupkg (Get-BoxstarterFeedAPIKey $pkg.Feed) -Source "$($pkg.Feed)/package" -NonInteractive
 }

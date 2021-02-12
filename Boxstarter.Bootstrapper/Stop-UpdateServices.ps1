@@ -1,16 +1,24 @@
 function Stop-UpdateServices {
-    write-boxstartermessage "Disabling Automatic Updates from Windows Update"
-    try {New-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update' -name 'NoAutoUpdate' -value '1' -propertyType "DWord" -force -ErrorAction Stop | Out-Null}catch { $global:error.RemoveAt(0) }
-    try {New-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update' -name 'NoAutoRebootWithLoggedOnUsers' -value '1' -propertyType "DWord" -force -ErrorAction Stop | Out-Null}catch { $global:error.RemoveAt(0) }
+    Write-BoxstarterMessage "Disabling Automatic Updates from Windows Update"
+    $winUpdateKey = "HKLM:SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\au"
+    if(!(Test-Path $winUpdateKey) ) { New-Item $winUpdateKey -Type Folder -Force | Out-Null }
+
+    Remove-BoxstarterError {
+        # Backup original value
+        Rename-ItemProperty -Path $winUpdateKey -Name 'NoAutoUpdate' -NewName 'NoAutoUpdate_BAK'
+
+        New-ItemProperty -Path $winUpdateKey -name 'NoAutoUpdate' -value '1' -propertyType "DWord" -force | Out-Null
+        New-ItemProperty -Path $winUpdateKey -name 'NoAutoRebootWithLoggedOnUsers' -value '1' -propertyType "DWord" -force | Out-Null
+    }
     Stop-CCMEXEC
 }
 
 function Stop-CCMEXEC {
-    $ccm = (get-service -include CCMEXEC)
+    $ccm = (Get-Service -include CCMEXEC)
     if($ccm) {
-        set-service CCMEXEC -startuptype disabled
+        Set-Service CCMEXEC -startuptype disabled
         do {
-            if($ccm.CanStop) { 
+            if($ccm.CanStop) {
                 Write-boxstartermessage "Stopping Configuration Manager"
                 Enter-BoxstarterLogable { Stop-Service CCMEXEC }
                 return

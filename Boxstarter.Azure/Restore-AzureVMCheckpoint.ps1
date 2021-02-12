@@ -19,11 +19,11 @@ Restore-AzureVMCheckpoint -VM $VM -CheckpointName "Clean"
 Restores MyVM to the state it was in when the "clean" checkpoint was created
 
 .LINK
-http://boxstarter.org
+https://boxstarter.org
 Set-AzureVMCheckpoint
 Get-AzureVMCheckpoint
 Remove-AzureVMCheckpoint
-#>    
+#>
     [CmdletBinding()]
     param (
         [parameter(Mandatory=$true, Position=0)]
@@ -38,7 +38,7 @@ Remove-AzureVMCheckpoint
 
     $blob=Get-Blob $vm
     $exportPath = "$env:temp\boxstarterAzureCheckpoint$($vm.Name).xml"
-    write-boxstartermessage "Getting OS Disk" -verbose
+    Write-BoxstarterMessage "Getting OS Disk" -verbose
     $vmOSDisk=Invoke-RetriableScript { Get-AzureOSDisk -VM $args[0] } $VM
 
     Write-BoxstarterMessage "Exporting VM configuration for $($vm.ServiceName) of $serviceName service to $exportPath..."
@@ -52,9 +52,9 @@ Remove-AzureVMCheckpoint
 
     Write-BoxstarterMessage "Waiting for disk $($vmOSDisk.DiskName) to be free..."
     do {
-        write-BoxstarterMessage "Still waiting..." -verbose
+        Write-BoxstarterMessage "Still waiting..." -verbose
         Start-Sleep -milliseconds 100
-    } 
+    }
     until ((Invoke-RetriableScript { (Get-AzureDisk -DiskName $args[0]).AttachedTo } $vmOSDisk.DiskName ) -eq $null)
 
     Write-BoxstarterMessage "Removing disk $($vmOSDisk.DiskName)..."

@@ -1,20 +1,21 @@
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
-if(get-module Boxstarter.bootstrapper){Remove-Module boxstarter.bootstrapper}
-Resolve-Path $here\..\..\boxstarter.common\*.ps1 | 
+if(Get-Module Boxstarter.bootstrapper){Remove-Module boxstarter.bootstrapper}
+Resolve-Path $here\..\..\boxstarter.common\*.ps1 |
     % { . $_.ProviderPath }
-Resolve-Path $here\..\..\boxstarter.winconfig\*.ps1 | 
+Resolve-Path $here\..\..\boxstarter.winconfig\*.ps1 |
     % { . $_.ProviderPath }
-Resolve-Path $here\..\..\boxstarter.bootstrapper\*.ps1 | 
+Resolve-Path $here\..\..\boxstarter.bootstrapper\*.ps1 |
     % { . $_.ProviderPath }
 $Boxstarter.SuppressLogging=$true
 $Boxstarter.BaseDir=(split-path -parent (split-path -parent $here))
 
 Describe "Invoke-Boxstarter" {
     $testRoot = (Get-PSDrive TestDrive).Root
-    $winUpdateKey="HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update"
+    $winUpdateKey="HKLM:SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\au"
     $winLogonKey="HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon"
     Remove-item "$(Get-BoxstarterTempDir)\Boxstarter.autologon" -ErrorAction SilentlyContinue
     Mock New-Item -ParameterFilter {$path -like "$env:appdata\*"}
+    Mock New-Item -ParameterFilter { $path -eq $winUpdateKey }
     Mock New-ItemProperty -ParameterFilter { $path -eq $winUpdateKey }
     Mock Remove-ItemProperty -ParameterFilter { $path -eq $winUpdateKey }
     Mock Stop-Service
@@ -45,6 +46,7 @@ Describe "Invoke-Boxstarter" {
         Mock Read-AuthenticatedPassword
         Mock Get-UAC
         Mock Remove-ItemProperty
+        Mock Set-ItemProperty -ParameterFilter {$Path -eq $winLogonKey}
         Mock Set-ItemProperty -ParameterFilter {$Path -eq "$(Get-BoxstarterTempDir)\Boxstarter.autologon"}
         Mock Get-ItemProperty -ParameterFilter { $path -eq $winLogonKey } -MockWith {@{
             DefaultUserName = "user"
@@ -128,7 +130,7 @@ Describe "Invoke-Boxstarter" {
         Mock Restart
         Mock RestartNow
         Mock Read-AuthenticatedPassword
-        Mock get-UAC
+        Mock Get-UAC
         Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" -Name "AutoAdminLogon" -Value 1
         Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" -Name "AutoLogonCount" -Value 1
 
@@ -139,6 +141,16 @@ Describe "Invoke-Boxstarter" {
         }
         Remove-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" -Name "AutoAdminLogon"
         Remove-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" -Name "AutoLogonCount"
+    }
+
+    Context "When win update key does not exist" {
+        Mock Test-Path {$False} -ParameterFilter { $path -eq $winUpdateKey }
+
+        Invoke-Boxstarter {return} | Out-Null
+
+        it "will create WUA key" {
+            Assert-MockCalled New-Item -ParameterFilter { $path -eq $winUpdateKey }
+        }
     }
 
     Context "When Configuration Service is installed" {
@@ -195,8 +207,10 @@ Describe "Invoke-Boxstarter" {
     Context "When install is remote and invokes task" {
         Mock Get-IsRemote {$true}
 
+        $currentUser=Get-CurrentUser
+        Create-BoxstarterTask (New-Object Management.Automation.PsCredential ("$($currentUser.Domain)\$($currentUser.Name)", (New-Object System.Security.SecureString)))
         Invoke-Boxstarter { Invoke-FromTask "add-content $env:temp\test.txt -value '`$pid'" } -NoPassword | Out-Null
-        $boxProc=get-Content $env:temp\test.txt
+        $boxProc=Get-Content $env:temp\test.txt
         Remove-item $env:temp\test.txt
 
         it "will run in a different process" {
@@ -207,12 +221,13 @@ Describe "Invoke-Boxstarter" {
             $result[0] | should Match "ERROR:"
         }
     }
-  
+
       Context "When A reboot is invoked" {
         Mock Get-UAC
         Mock Set-SecureAutoLogon
         Mock Restart
         Mock RestartNow
+        Mock New-Item -ParameterFilter {$Path -eq "$(Get-BoxstarterTempDir)\boxstarter.script"}
         Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" -Name "AutoAdminLogon" -Value 1
 
         Invoke-Boxstarter {Invoke-Reboot} -RebootOk -password (ConvertTo-SecureString "mypassword" -asplaintext -force) | Out-Null
@@ -255,7 +270,7 @@ Describe "Invoke-Boxstarter" {
         Mock Restart
         Mock RestartNow
         Mock Read-AuthenticatedPassword
-        Mock get-UAC
+        Mock Get-UAC
         Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" -Name "AutoAdminLogon" -Value 1
         New-Item "$(Get-BoxstarterTempDir)\Boxstarter.script" -type file -value ([ScriptBlock]::Create("`$env:testkey='val'")) -force | Out-Null
 
@@ -388,7 +403,7 @@ Describe "Invoke-Boxstarter" {
         Mock RestartNow
         Mock Read-AuthenticatedPassword
         $Boxstarter.IsRebooting=$true
-        
+
         Invoke-Boxstarter {return} -RebootOk | Out-Null
 
         it "will Not Set AutoLogin" {

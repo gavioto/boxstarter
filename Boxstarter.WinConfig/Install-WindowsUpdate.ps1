@@ -19,14 +19,14 @@ Setting this switch will suppress a reboot in the event that any update requires
 The criteria used for searching updates. The default criteria is "IsHidden=0 and IsInstalled=0 and Type='Software'" which is effectively just critical updates.
 
 .LINK
-http://boxstarter.org
+https://boxstarter.org
 
-#>    
+#>
     param(
-        [switch]$getUpdatesFromMS, 
-        [switch]$acceptEula, 
+        [switch]$getUpdatesFromMS,
+        [switch]$acceptEula,
         [switch]$SuppressReboots,
-        [string]$criteria="IsHidden=0 and IsInstalled=0 and Type='Software'"
+        [string]$criteria="IsHidden=0 and IsInstalled=0 and Type='Software' and BrowseOnly=0"
     )
 
     if(Get-IsRemote){
@@ -41,7 +41,7 @@ Install-WindowsUpdate -GetUpdatesFromMS:`$$GetUpdatesFromMS -AcceptEula:`$$Accep
     }
 
     try{
-        $searchSession=Start-TimedSection "Checking for updates..."        
+        $searchSession=Start-TimedSection "Checking for updates..."
         $updateSession =new-object -comobject "Microsoft.Update.Session"
         $Downloader =$updateSession.CreateUpdateDownloader()
         $Installer =$updateSession.CreateUpdateInstaller()
@@ -60,7 +60,13 @@ Install-WindowsUpdate -GetUpdatesFromMS:`$$GetUpdatesFromMS -AcceptEula:`$$Accep
             if($origStartupType -eq "Disabled"){
                 Set-Service wuauserv -StartupType Automatic
             }
-            Start-Service wuauserv
+            Out-BoxstarterLog "Starting windows update service" -verbose
+            Start-Service -Name wuauserv
+        }
+        else {
+            # Restart in case updates are running in the background
+            Out-BoxstarterLog "Restarting windows update service" -verbose
+            Remove-BoxstarterError { Restart-Service -Name wuauserv -Force -WarningAction SilentlyContinue }
         }
 
         $Result = $Searcher.Search($criteria)
@@ -84,16 +90,12 @@ Install-WindowsUpdate -GetUpdatesFromMS:`$$GetUpdatesFromMS -AcceptEula:`$$Accep
                 }
 
                 $Result= $null
-                if ($update.isDownloaded -eq "true" -and ($update.InstallationBehavior.CanRequestUserInput -eq $false )) {
-                    Out-BoxstarterLog " * $($update.title) already downloaded"
+                if ($update.InstallationBehavior.CanRequestUserInput -eq $false ) {
+                    Download-Update $update
                     $result = install-Update $update $currentCount $totalUpdates
                 }
-                elseif($update.InstallationBehavior.CanRequestUserInput -eq $true) {
-                    Out-BoxstarterLog " * $($update.title) Requires user input and will not be downloaded"
-                }
                 else {
-                    Download-Update $update
-                    $result = Install-Update $update $currentCount $totalUpdates
+                    Out-BoxstarterLog " * $($update.title) Requires user input and will not be downloaded"
                 }
             }
 
@@ -102,7 +104,7 @@ Install-WindowsUpdate -GetUpdatesFromMS:`$$GetUpdatesFromMS -AcceptEula:`$$Accep
                     Out-BoxstarterLog "A Restart is Required."
                 } else {
                     $Rebooting=$true
-                    Write-BoxstarterMessage "Restart Required. Restarting now..."
+                    Out-BoxstarterLog "Restart Required. Restarting now..."
                     Stop-TimedSection $installSession
                     if(test-path function:\Invoke-Reboot) {
                         return Invoke-Reboot
@@ -112,10 +114,10 @@ Install-WindowsUpdate -GetUpdatesFromMS:`$$GetUpdatesFromMS -AcceptEula:`$$Accep
                 }
             }
         }
-        else{Write-BoxstarterMessage "There is no update applicable to this machine"}    
+        else{Out-BoxstarterLog "There is no update applicable to this machine"}
     }
     catch {
-        Write-BoxstarterMessage "There were problems installing updates: $($_.ToString())"
+        Out-BoxstarterLog "There were problems installing updates: $($_.ToString())"
         throw
     }
     finally {
@@ -124,39 +126,72 @@ Install-WindowsUpdate -GetUpdatesFromMS:`$$GetUpdatesFromMS -AcceptEula:`$$Accep
         }
         if($origStatus -eq "Stopped")
         {
-            Write-BoxstarterMessage "Stopping win update service and setting its startup type to $origStartupType" -verbose
+            Out-BoxstarterLog "Stopping win update service and setting its startup type to $origStartupType" -verbose
             Set-Service wuauserv -StartupType $origStartupType
-            stop-service wuauserv -ErrorAction SilentlyContinue
+            Remove-BoxstarterError { stop-service wuauserv -WarningAction SilentlyContinue }
         }
     }
 }
 
 function Download-Update($update) {
-    $downloadSession=Start-TimedSection "Download of $($update.Title)"
-    $updates= new-Object -com "Microsoft.Update.UpdateColl"
-    $updates.Add($update) | out-null
+    $downloadSession = Start-TimedSection "Download of $($update.Title)"
+    $updates = New-Object -com "Microsoft.Update.UpdateColl"
+    $updates.Add($update) | Out-Null
     $Downloader.Updates = $updates
-    $Downloader.Download() | Out-Null
+
+    $retry = $true
+    [int]$retries = "10"
+    [int]$currentRetry = "0"
+    [int]$retrySeconds = 30
+
+    do {
+        try {
+            $Downloader.Download() | Out-Null
+            $retry = $false
+        }
+        catch {
+            # Check for WU_E_SELFUPDATE_IN_PROGRESS
+            if($_.Exception.HResult -eq -2145124325) {
+                if ($currentRetry -gt $retries) {
+                    # We can't wait forever...
+                    Write-BoxstarterMessage "Windows Update Agent took too long to update itself."
+                    throw
+                }
+
+                Write-BoxstarterMessage "Windows Update Agent is self-updating... Waiting."
+                $global:error.RemoveAt(0)
+
+                Start-Sleep -Seconds $retrySeconds
+                $currentRetry = $currentRetry + 1
+            }
+            # Some other execption happened...
+            else {
+                throw
+            }
+        }
+    } while ($retry -eq $true)
+
     Stop-TimedSection $downloadSession
 }
 
 function Install-Update($update, $currentCount, $totalUpdates) {
     $installSession=Start-TimedSection "Install $currentCount of $totalUpdates updates: $($update.Title)"
-    $updates= new-Object -com "Microsoft.Update.UpdateColl"
-    $updates.Add($update) | out-null
+    $updates= New-Object -com "Microsoft.Update.UpdateColl"
+    $updates.Add($update) | Out-Null
     $Installer.updates = $Updates
     try { $result = $Installer.Install() } catch {
-        if(!($SuppressReboots) -and (test-path function:\Invoke-Reboot)){
-            if(Test-PendingReboot){Invoke-Reboot}
+        if(!($SuppressReboots) -and (Test-Path function:\Invoke-Reboot)){
+            if(Test-PendingReboot){
+                $global:error.RemoveAt(0)
+                Invoke-Reboot
+            }
         }
-        # Check for WU_E_INSTALL_NOT_ALLOWED  
-        if($_.Exception.HResult -eq -2146233087) {
+        # Check for WU_E_INSTALL_NOT_ALLOWED
+        if($_.Exception.HResult -eq -2145124330) {
             Out-BoxstarterLog "There is either an update in progress or there is a pending reboot blocking the install."
-            Out-BoxstarterLog "If you are using the Bootstrapper or Chocolatey module, try using:"
-            Out-BoxstarterLog "if(Test-PendingReboot){Invoke-Reboot}"
-            Out-BoxstarterLog "This will perform a reboot if reboots are pending."
+            $global:error.RemoveAt(0)
         }
-        throw
+        else { throw }
     }
     Stop-TimedSection $installSession
     return $result

@@ -5,8 +5,8 @@ Installs a Boxstarter package
 
 .DESCRIPTION
 This function wraps a Chocolatey Install and provides these additional features
- - Installs chocolatey if it is not already installed
- - Installs the .net 4.5 framework if it is not installed which is a chocolatey requirement
+ - Installs Chocolatey if it is not already installed
+ - Installs the .net 4.5 framework if it is not installed which is a Chocolatey requirement
  - Disables windows update service during installation to prevent installation conflicts and minimize the need for reboots
  - Imports the Boxstarter.WinConfig module that provides functions for customizing windows
  - Detects pending reboots and restarts the machine when necessary to avoid installation failures
@@ -16,124 +16,131 @@ This function wraps a Chocolatey Install and provides these additional features
 
  The .nupkg file for the provided package name is searched in the following locations and order:
  - .\BuildPackages relative to the parent directory of the module file
- - The Chocolatey feed
- - The Boxstarter feed on MyGet
- This can be configured by editing $($Boxstarter.BaseDir)\Boxstarter.Config
+ - The Chocolatey community feed / OR NugetSources in Boxstarter.config when the 'DelegateChocoSources' switch is used
+ This can be configured by editing $($Boxstarter.BaseDir)\Boxstarter.config
 
- If the package name provided is a URL or resolves to a file, then 
- it is assumed that this contains the chocolatey install script and
+ If the package name provided is a URL or resolves to a file, then
+ it is assumed that this contains the Chocolatey install script and
  a .nupkg file will be created using the script.
 
  Boxstarter can install packages onto a remote machine. To accomplish this,
  use either the ComputerName, Session or ConnectionURI parameters. Boxstarter uses
  PowerShell remoting to establish an interactive session on the remote computer.
- Boxstarter configures all the necessary client side remoting settings necessary if 
- they are not already configured. Boxstarter will prompt the user to verify that 
+ Boxstarter configures all the necessary client side remoting settings necessary if
+ they are not already configured. Boxstarter will prompt the user to verify that
  this is OK. Using the -Force switch will suppress the prompt. Boxstarter also ensures
- that CredSSP authentication is enabled so that any network calls made by a package will 
+ that CredSSP authentication is enabled so that any network calls made by a package will
  forward the users credentials.
 
- PowerShell Remoting must be enabled on the target machine in order to establish a connection. 
- If that machine's WMI ports are accessible, Boxstarter can enable PowerShell remoting 
- on the remote machine on its own. Otherwise, it can be manually enabled by entering 
+ PowerShell Remoting must be enabled on the target machine in order to establish a connection.
+ If that machine's WMI ports are accessible, Boxstarter can enable PowerShell remoting
+ on the remote machine on its own. Otherwise, it can be manually enabled by entering
 
  Enable-PSRemoting -Force
 
  In an administrative PowerShell console on the remote machine.
- 
+
  .PARAMETER ComputerName
  If provided, Boxstarter will install the specified package name on all computers.
- Boxstarter will create a Remote Session on each computer using the Credentials 
+ Boxstarter will create a Remote Session on each computer using the Credentials
  given in the Credential parameter.
 
  .PARAMETER ConnectionURI
- Specifies one or more Uniform Resource Identifiers (URI) that Boxstarter will use 
- to establish a connection with the remote computers upon which the package should 
+ Specifies one or more Uniform Resource Identifiers (URI) that Boxstarter will use
+ to establish a connection with the remote computers upon which the package should
  be installed. Use this parameter if you need to use a non default PORT or SSL.
 
  .PARAMETER Session
- If provided, Boxstarter will install the specified package in all given Windows 
- PowerShell sessions. Note that these sessions may be closed by the time 
- Install-BoxstarterPackage finishes. If Boxstarter needs to restart the remote 
- computer, the session will be discarded and a new session will be created using 
+ If provided, Boxstarter will install the specified package in all given Windows
+ PowerShell sessions. Note that these sessions may be closed by the time
+ Install-BoxstarterPackage finishes. If Boxstarter needs to restart the remote
+ computer, the session will be discarded and a new session will be created using
  the ConnectionURI of the original session.
 
  .PARAMETER BoxstarterConnectionConfig
  If provided, Boxstarter will install the specified package name on all computers
- included in the BoxstarterConnectionConfig. This object contains a ComputerName
- and a PSCredential. Use this object if you need to pass different computers
- requiring different credentials.
+ included in the BoxstarterConnectionConfig. This object contains a ConnectionURI
+ a PSCredential, and an optional PSSessionOption. Use this object if you need to
+ pass different computers requiring different credentials.
 
  .PARAMETER PackageName
- The names of one or more Nuget Packages to be installed or URIs or 
- file paths pointing to a chocolatey script. If using package names,
- the .nupkg file for the provided package names are searched in the 
+ The names of one or more NuGet Packages to be installed or URIs or
+ file paths pointing to a Chocolatey script. If using package names,
+ the .nupkg file for the provided package names are searched in the
  following locations and order:
  - .\BuildPackages relative to the parent directory of the module file
- - The Chocolatey feed
- - The Boxstarter feed on MyGet
+ - The Chocolatey community feed
+ - NugetSources in Boxstarter.config when the 'DelegateChocoSources' switch is used
 
 .PARAMETER DisableReboots
 If set, reboots are suppressed.
 
 .PARAMETER Credential
 The credentials to use for auto logins after reboots. If installing on
-a remote machine, this credential will also be used to establish the 
+a remote machine, this credential will also be used to establish the
 connection to the remote machine and also for any scheduled task that
 boxstarter needs to create and run under a local context.
 
 .PARAMETER KeepWindowOpen
-Enabling this switch will prevent the command window from closing and 
-prompt the user to pres the Enter key before the window closes. This 
+Enabling this switch will prevent the command window from closing and
+prompt the user to pres the Enter key before the window closes. This
 is ideal when not invoking boxstarter from a console.
 
 .Parameter LocalRepo
-This is the path to the local boxstarter repository where boxstarter 
-should look for .nupkg files to install. By default this is located 
-in the BuildPackages directory just under the root Boxstarter 
+This is the path to the local boxstarter repository where boxstarter
+should look for .nupkg files to install. By default this is located
+in the BuildPackages directory just under the root Boxstarter
 directory but can be changed with Set-BoxstarterConfig.
 
+.PARAMETER DelegateChocoSources
+This enables remote Chocolatey installs to use the same NugetSources
+as the local Boxstarter install.
+
+.PARAMETER StopOnPackageFailure
+This will stop execution immediately after a Chocolatey package fails to
+install.
+
 .NOTES
-If specifying only one package, Boxstarter calls chocolatey with the 
--force argument and deletes the previously installed package directory. 
-This means that regardless of whether or not the package had been 
+If specifying only one package, Boxstarter calls Chocolatey with the
+-force argument and deletes the previously installed package directory.
+This means that regardless of whether or not the package had been
 installed previously, Boxstarter will attempt to download and reinstall it.
-This only holds true for the outer package. If the package contains calls 
-to CINST for additional packages, those installs will not reinstall if 
+This only holds true for the outer package. If the package contains calls
+to CINST for additional packages, those installs will not reinstall if
 previously installed.
 
-If an array of package names are passed to Install-BoxstarterPackage, 
-Boxstarter will NOT apply the above reinstall logic and will skip the 
+If an array of package names are passed to Install-BoxstarterPackage,
+Boxstarter will NOT apply the above reinstall logic and will skip the
 install for any package that had been previously installed.
 
-When establishing a remote connection, Boxstarter uses CredSSP 
-authentication so that the session can access any network resources 
-normally accessible to the Credential. If necessary, Boxstarter 
-configures CredSSP authentication on both the local and remote 
-machines as well as the necessary Group Policy and WSMan settings 
-for credential delegation. When the installation completes, 
-Boxstarter rolls back all settings that it changed to their original 
+When establishing a remote connection, Boxstarter uses CredSSP
+authentication so that the session can access any network resources
+normally accessible to the Credential. If necessary, Boxstarter
+configures CredSSP authentication on both the local and remote
+machines as well as the necessary Group Policy and WSMan settings
+for credential delegation. When the installation completes,
+Boxstarter rolls back all settings that it changed to their original
 state.
 
-If Boxstarter is not running in an elevated console, it will not attempt 
-to enable CredSSP locally if it is not already enabled. It will also not 
+If Boxstarter is not running in an elevated console, it will not attempt
+to enable CredSSP locally if it is not already enabled. It will also not
 try to enable PowerShell remoting if not running as administrator.
 
-When using a Windows PowerShell session instead of ComputerName or 
-ConnectionURI, Boxstarter will use the authentication mechanism of the 
-existing session and will not configure CredSSP if the session provided 
-is not using CredSSP. If the session is not using CredSSP, it may be 
-denied access to network resources normally accessible to the Credential 
-being used. If you do need to access network resources external to the 
+When using a Windows PowerShell session instead of ComputerName or
+ConnectionURI, Boxstarter will use the authentication mechanism of the
+existing session and will not configure CredSSP if the session provided
+is not using CredSSP. If the session is not using CredSSP, it may be
+denied access to network resources normally accessible to the Credential
+being used. If you do need to access network resources external to the
 session, you should use CredSSP when establishing the connection.
 
 .INPUTS
-ComputerName, ConnrectionURI and Session may all be specified on the 
+ComputerName, ConnrectionURI and Session may all be specified on the
 pipeline.
 
 .OUTPUTS
-Returns a PSObject for each session, ComputerName or ConnectionURI or a 
-single PSObject for local installations. The PSObject has the following 
+Returns a PSObject for each session, ComputerName or ConnectionURI or a
+single PSObject for local installations. The PSObject has the following
 properties:
 
 ComputerName: The name of the computer where the package was installed
@@ -142,20 +149,20 @@ StartTime: The time that the installation began
 
 FinishTime: The time that Boxstarter finished the installation
 
-Completed: True or False indicating if Boxstarter was able to complete 
-the installation without a terminating exception interrupting the install. 
-Even if this value is True, it does not mean that all components installed 
-in the package succeeded. Boxstarter will not terminate an installation if 
-individual Chocolatey packages fail. Use the Errors property to discover 
+Completed: True or False indicating if Boxstarter was able to complete
+the installation without a terminating exception interrupting the install.
+Even if this value is True, it does not mean that all components installed
+in the package succeeded. Boxstarter will not terminate an installation if
+individual Chocolatey packages fail. Use the Errors property to discover
 errors that were raised throughout the installation.
 
-Errors: An array of all errors encountered during the duration of the 
+Errors: An array of all errors encountered during the duration of the
 installation.
 
 .EXAMPLE
 Invoke-ChocolateyBoxstarter "example1","example2"
 
-This installs the example1 and example2 .nupkg files. If pending 
+This installs the example1 and example2 .nupkg files. If pending
 reboots are detected, boxstarter will restart the machine. Boxstarter
 will not perform automatic logins after restart since no Credential
 was given.
@@ -166,7 +173,7 @@ Install-BoxstarterPackage -Package https://gist.github.com/mwrock/6771863/raw/b5
    -Credential $cred
 
 This installs the script uploaded to the github gist. The credentials
-of the user mwrock are used to automatically login the user if 
+of the user mwrock are used to automatically login the user if
 boxstarter needs to reboot the machine.
 
 .EXAMPLE
@@ -177,13 +184,19 @@ This installs the MyPackage package on MyOtherComputer.mydomain.com.
 
 .EXAMPLE
 $cred=Get-Credential mwrock
+Install-BoxstarterPackage -ComputerName MyOtherComputer.mydomain.com -Package MyPackage -Credential $cred -DelegateChocoSources
+
+This installs the MyPackage package on MyOtherComputer.mydomain.com, using the Chocolatey feeds configured in Boxstarter.config
+
+.EXAMPLE
+$cred=Get-Credential mwrock
 $session=New-PSSession SomeComputer -Credential $cred
 Install-BoxstarterPackage -Session $session -Package MyPackage -Credential $cred
 
-This installs the MyPackage package on an existing session established with 
-SomeComputer. A Credential is still passed to Boxstarter even though it is 
+This installs the MyPackage package on an existing session established with
+SomeComputer. A Credential is still passed to Boxstarter even though it is
 also used to establish the session because Boxstarter will need it for logons
-and creating Scheduled Tasks on SomeComputer. If Boxstarter does need to 
+and creating Scheduled Tasks on SomeComputer. If Boxstarter does need to
 reboot SomeComputer, it will need to create a new session after SomeComputer
 has rebooted and then $session will no longer be in an Available state when
 Install-BoxstarterPackage completes.
@@ -193,7 +206,7 @@ $cred=Get-Credential mwrock
 Install-BoxstarterPackage -ConnectionURI http://RemoteComputer:59876/wsman -Package MyPackage -Credential $cred
 
 This installs the MyPackage package on RemoteComputer which does not
-listen on the default wsman port but has been configured to listen 
+listen on the default wsman port but has been configured to listen
 on port 59876.
 
 .EXAMPLE
@@ -202,7 +215,7 @@ Install-BoxstarterPackage -ComputerName MyOtherComputer.mydomain.com -Package My
 
 This installs the MyPackage package on MyOtherComputer.mydomain.com.
 Because the -Force parameter is used, Boxstarter will not prompt the
-user to confirm that it is OK to enable PowerShell remoting if it is 
+user to confirm that it is OK to enable PowerShell remoting if it is
 not already enabled. It will attempt to enable it without prompts.
 
 .EXAMPLE
@@ -211,19 +224,19 @@ $cred=Get-Credential mwrock
 
 This installs the MyPackage package on computer1 and computer2
 Because the -Force parameter is used, Boxstarter will not prompt the
-user to confirm that it is OK to enable PowerShell remoting if it is 
+user to confirm that it is OK to enable PowerShell remoting if it is
 not already enabled. It will attempt to enable it without prompts.
 
-Using -Force is especially advisable when installing packages on multiple 
-computers because otherwise, if one computer is not accessible, the command 
-will prompt the user if it is OK to try and configure the computer before 
+Using -Force is especially advisable when installing packages on multiple
+computers because otherwise, if one computer is not accessible, the command
+will prompt the user if it is OK to try and configure the computer before
 proceeding to the other computers.
 
 .EXAMPLE
 $cred1=Get-Credential mwrock
 $cred2=Get-Credential domain\mwrock
-(New-Object -TypeName BoxstarterConnectionConfig -ArgumentList "computer1",$cred1), `
-(New-Object -TypeName BoxstarterConnectionConfig -ArgumentList "computer2",$cred2) |
+(New-Object -TypeName BoxstarterConnectionConfig -ArgumentList "http://computer1:5985/wsman",$cred1,$null), `
+(New-Object -TypeName BoxstarterConnectionConfig -ArgumentList "http://computer2:5985/wsman",$cred2,$null) |
 Install-BoxstarterPackage -Package MyPackage
 
 This installs the MyPackage package on computer1 and computer2 and uses
@@ -233,52 +246,66 @@ different credentials for each computer.
 $cred=Get-Credential mwrock
 Install-BoxstarterPackage script.ps1 -Credential $cred
 
-This installs the script located at script.ps1 
+This installs the script located at script.ps1
 in the command line's current directory.
 
 .EXAMPLE
 $cred=Get-Credential mwrock
 Install-BoxstarterPackage \\server\share\script.ps1 -Credential $cred
 
-This invokes boxstarter and installs the script located at the 
+This invokes boxstarter and installs the script located at the
 specified share.
 
 .EXAMPLE
 $cred=Get-Credential mwrock
 Install-BoxstarterPackage win8Install -LocalRepo \\server\share\boxstarter -Credential $cred
 
-This installs the Win8Install .nupkg. Boxstarter will look 
-for the Win8Install .nupkg file in the \\serer\share\boxstarter 
+This installs the Win8Install .nupkg. Boxstarter will look
+for the Win8Install .nupkg file in the \\serer\share\boxstarter
 directory.
 
 
 .LINK
-http://boxstarter.org
+https://boxstarter.org
 about_boxstarter_chocolatey
 #>
     [CmdletBinding(DefaultParameterSetName="Package")]
 	param(
         [parameter(Mandatory=$true, Position=0, ValueFromPipeline=$True, ParameterSetName="BoxstarterConnectionConfig")]
         [BoxstarterConnectionConfig[]]$BoxstarterConnectionConfig,
+
         [parameter(Mandatory=$true, Position=0, ValueFromPipeline=$True, ParameterSetName="ComputerName")]
         [string[]]$ComputerName,
+
         [parameter(Mandatory=$true, Position=0, ValueFromPipeline=$True, ParameterSetName="ConnectionUri")]
         [Uri[]]$ConnectionUri,
+
         [parameter(Mandatory=$true, Position=0, ValueFromPipeline=$True, ParameterSetName="Session")]
         [System.Management.Automation.Runspaces.PSSession[]]$Session,
+
         [parameter(Mandatory=$true, Position=0, ParameterSetName="Package")]
         [parameter(Mandatory=$true, Position=1, ParameterSetName="ComputerName")]
         [parameter(Mandatory=$true, Position=1, ParameterSetName="ConnectionUri")]
         [parameter(Mandatory=$true, Position=1, ParameterSetName="Session")]
         [parameter(Mandatory=$true, Position=1, ParameterSetName="BoxstarterConnectionConfig")]
         [string[]]$PackageName,
+
         [Management.Automation.PsCredential]$Credential,
+
         [switch]$Force,
+
         [switch]$DisableReboots,
+
         [parameter(ParameterSetName="Package")]
         [switch]$KeepWindowOpen,
+
         [string]$LocalRepo,
-        [switch]$DisableRestart
+
+        [switch]$DisableRestart,
+
+        [switch]$DelegateChocoSources,
+
+        [switch]$StopOnPackageFailure
     )
     $CurrentVerbosity=$global:VerbosePreference
     try {
@@ -295,7 +322,7 @@ about_boxstarter_chocolatey
 
         #me me me!
         Write-BoxstarterLogo
-        
+
         #Convert pipeline to array
         $list=@($input)
         if($list.Count){
@@ -307,10 +334,12 @@ about_boxstarter_chocolatey
             $sessionArgs.Credential=$Credential
         }
 
+				$delegateSources = if ($DelegateChocoSources) { $true} else { $false }
+
         #If $sessions are being provided we assume remoting is setup on both ends
         #and don't need to test, configure and tear down
         if($Session -ne $null){
-            Process-Sessions $Session $sessionArgs
+            Process-Sessions $Session $sessionArgs $delegateSources
             return
         }
 
@@ -338,7 +367,7 @@ about_boxstarter_chocolatey
                 $ConnectionUri | %{
                     $sessionArgs.ConnectionURI = $_
                     Write-BoxstarterMessage "Installing $packageName on $($_.ToString())"
-                    Install-BoxstarterPackageOnComputer $_.Host $sessionArgs $PackageName $DisableReboots $CredSSPStatus
+                    Install-BoxstarterPackageOnComputer $_.Host $sessionArgs $PackageName $DisableReboots $CredSSPStatus $delegateSources
                 }
             }
             elseif($BoxstarterConnectionConfig) {
@@ -350,13 +379,13 @@ about_boxstarter_chocolatey
                     if($_.PSSessionOption){
                         $sessionArgs.SessionOption = $_.PSSessionOption
                     }
-                    Install-BoxstarterPackageOnComputer $_.ConnectionURI.Host $sessionArgs $PackageName $DisableReboots $CredSSPStatus $false
+                    Install-BoxstarterPackageOnComputer $_.ConnectionURI.Host $sessionArgs $PackageName $DisableReboots $CredSSPStatus $delegateSources
                 }
             }
             else {
                 $ComputerName | %{
                     $sessionArgs.ComputerName = $_
-                    Install-BoxstarterPackageOnComputer $_ $sessionArgs $PackageName $DisableReboots $CredSSPStatus
+                    Install-BoxstarterPackageOnComputer $_ $sessionArgs $PackageName $DisableReboots $CredSSPStatus $delegateSources
                 }
             }
         }
@@ -386,13 +415,13 @@ function Get-ComputerNames([URI[]]$ConnectionUris) {
     return $computerNames
 }
 
-function Process-Sessions($sessions, $sessionArgs){
+function Process-Sessions($sessions, $sessionArgs, $delegateSources){
     $Sessions | %{
         Write-BoxstarterMessage "Processing Session..." -Verbose
         Set-SessionArgs $_ $sessionArgs
         $record = Start-Record $_.ComputerName
         try {
-            if(-not (Install-BoxstarterPackageForSession $_ $PackageName $DisableReboots $sessionArgs)){
+            if(-not (Install-BoxstarterPackageForSession $_ $PackageName $DisableReboots $sessionArgs $delegateSources)){
                 $record.Completed=$false
             }
         }
@@ -433,10 +462,10 @@ function Finish-Record($obj) {
     Write-BoxstarterMessage "object written..." -Verbose
 }
 
-function Install-BoxstarterPackageOnComputer ($ComputerName, $sessionArgs, $PackageName, $DisableReboots, $CredSSPStatus, $TestRemoting = $true){
+function Install-BoxstarterPackageOnComputer ($ComputerName, $sessionArgs, $PackageName, $DisableReboots, $CredSSPStatus, $delegateSources){
     $record = Start-Record $ComputerName
     try {
-        if($TestRemoting -and !(Enable-RemotingOnRemote $sessionArgs $ComputerName)){
+        if(!(Enable-RemotingOnRemote $sessionArgs $ComputerName)){
             Write-Error "Unable to access remote computer via PowerShell Remoting or WMI. You can enable it by running: Enable-PSRemoting -Force from an Administrator PowerShell console on the remote computer."
             $record.Completed=$false
             return
@@ -446,10 +475,10 @@ function Install-BoxstarterPackageOnComputer ($ComputerName, $sessionArgs, $Pack
             $enableCredSSP = Should-EnableCredSSP $sessionArgs $computerName
         }
 
-        write-BoxstarterMessage "Creating a new session with $computerName..." -Verbose
+        Write-BoxstarterMessage "Creating a new session with $computerName..." -Verbose
         $session = New-PSSession @sessionArgs -Name Boxstarter
 
-        if(-not (Install-BoxstarterPackageForSession $session $PackageName $DisableReboots $sessionArgs $enableCredSSP)){
+        if(-not (Install-BoxstarterPackageForSession $session $PackageName $DisableReboots $sessionArgs $enableCredSSP $delegateSources)){
             $record.Completed=$false
         }
     }
@@ -462,17 +491,17 @@ function Install-BoxstarterPackageOnComputer ($ComputerName, $sessionArgs, $Pack
     }
 }
 
-function Install-BoxstarterPackageForSession($session, $PackageName, $DisableReboots, $sessionArgs, $enableCredSSP) {
+function Install-BoxstarterPackageForSession($session, $PackageName, $DisableReboots, $sessionArgs, $enableCredSSP, $delegateSources) {
     try{
         if($session.Availability -ne "Available"){
-            write-Error (New-Object -TypeName ArgumentException -ArgumentList "The Session is not Available")
+            Write-Error (New-Object -TypeName ArgumentException -ArgumentList "The Session is not Available")
             return $false
         }
 
         for($count = 1; $count -le 5; $count++) {
             try {
                 Write-BoxstarterMessage "Attempt #$count to copy Boxstarter modules to $($session.ComputerName)" -Verbose
-                Setup-BoxstarterModuleAndLocalRepo $session
+                Setup-BoxstarterModuleAndLocalRepo $session $delegateSources
                 break
             }
             catch {
@@ -489,14 +518,14 @@ function Install-BoxstarterPackageForSession($session, $PackageName, $DisableReb
                 $session=$credSSPSession
             }
         }
-        
-        Invoke-Remotely $session $PackageName $DisableReboots $sessionArgs
+
+        Invoke-Remotely ([ref]$session) $PackageName $DisableReboots $sessionArgs
         return $true
     }
     finally {
         Write-BoxstarterMessage "checking if session should be removed..." -Verbose
         if($session -ne $null -and $session.Name -eq "Boxstarter") {
-            Write-BoxstarterMessage "Removing session..." -Verbose
+            Write-BoxstarterMessage "Removing session $($session.id)..." -Verbose
             Remove-PSSession $Session
             Write-BoxstarterMessage "Session removed..." -Verbose
             $Session = $null
@@ -514,30 +543,39 @@ function Install-BoxstarterPackageForSession($session, $PackageName, $DisableReb
 function Invoke-Locally {
     param(
         [string[]]$PackageName,
+
         [Management.Automation.PsCredential]$Credential,
+
         [switch]$Force,
+
         [switch]$DisableReboots,
+
         [switch]$KeepWindowOpen,
-        [switch]$DisableRestart
+
+        [switch]$DisableRestart,
+
+        [string]$LocalRepo,
+
+        [switch]$StopOnPackageFailure
     )
     if($PSBoundParameters.ContainsKey("Credential")){
         if($Credential -ne $null) {
             $PSBoundParameters.Add("Password",$PSBoundParameters["Credential"].Password)
         }
-        $PSBoundParameters.Remove("Credential") | out-Null
+        $PSBoundParameters.Remove("Credential") | Out-Null
     }
     else {
         $PSBoundParameters.Add("NoPassword",$True)
     }
     if($PSBoundParameters.ContainsKey("Force")){
-        $PSBoundParameters.Remove("Force") | out-Null
+        $PSBoundParameters.Remove("Force") | Out-Null
     }
     $PSBoundParameters.Add("BootstrapPackage", $PSBoundParameters.PackageName)
-    $PSBoundParameters.Remove("PackageName") | out-Null
+    $PSBoundParameters.Remove("PackageName") | Out-Null
 
     $record = Start-Record 'localhost'
     try {
-        Invoke-ChocolateyBoxstarter @PSBoundParameters | Out-Null
+        Invoke-ChocolateyBoxstarter @PSBoundParameters
     }
     catch {
         $record.Completed=$false
@@ -550,7 +588,7 @@ function Invoke-Locally {
 
 function Enable-RemotingOnRemote ($sessionArgs, $ComputerName){
     Write-BoxstarterMessage "Testing remoting access on $ComputerName..."
-    try { 
+    try {
         $remotingTest = Invoke-Command @sessionArgs { Get-WmiObject Win32_ComputerSystem } -ErrorAction Stop
     }
     catch {
@@ -585,52 +623,111 @@ function Enable-RemotingOnRemote ($sessionArgs, $ComputerName){
     return $True
 }
 
-function Setup-BoxstarterModuleAndLocalRepo($session){
+function Setup-BoxstarterModuleAndLocalRepo($session, $delegateSources){
     if($LocalRepo){$Boxstarter.LocalRepo=$LocalRepo}
     Write-BoxstarterMessage "Copying Boxstarter Modules and LocalRepo packages at $($Boxstarter.BaseDir) to $env:temp on $($Session.ComputerName)..."
-    Invoke-Command -Session $Session { mkdir $env:temp\boxstarter\BuildPackages -Force  | out-Null }
+    Invoke-Command -Session $Session { mkdir $env:temp\boxstarter\BuildPackages -Force  | Out-Null }
     Send-File "$($Boxstarter.BaseDir)\Boxstarter.Chocolatey\Boxstarter.zip" "Boxstarter\boxstarter.zip" $session
-    Get-ChildItem "$($Boxstarter.LocalRepo)\*.nupkg" | % { 
+    Get-ChildItem "$($Boxstarter.LocalRepo)\*.nupkg" | % {
         Write-BoxstarterMessage "Copying $($_.Name) to $($Session.ComputerName)" -Verbose
-        Send-File "$($_.FullName)" "Boxstarter\BuildPackages\$($_.Name)" $session 
+        Send-File "$($_.FullName)" "Boxstarter\BuildPackages\$($_.Name)" $session
     }
+    Write-BoxstarterMessage "Expanding modules on $($Session.ComputerName)" -Verbose
     Invoke-Command -Session $Session {
         Set-ExecutionPolicy Bypass -Force
-        $shellApplication = new-object -com shell.application 
-        $zipPackage = $shellApplication.NameSpace("$env:temp\Boxstarter\Boxstarter.zip") 
-        $destinationFolder = $shellApplication.NameSpace("$env:temp\boxstarter") 
-        $destinationFolder.CopyHere($zipPackage.Items(),0x10)
+        if ($PSVersionTable.PSVersion.Major -ge 4) {
+            try
+            {
+                Add-Type -AssemblyName System.IO.Compression.FileSystem
+                $archive = [System.IO.Compression.ZipFile]::OpenRead("$env:temp\Boxstarter\Boxstarter.zip")
+
+                foreach ($entry in $archive.Entries)
+                {
+                    $entryTargetFilePath = [System.IO.Path]::Combine("$env:temp\boxstarter", $entry.FullName)
+                    $entryDir = [System.IO.Path]::GetDirectoryName($entryTargetFilePath)
+
+                    if(!(Test-Path $entryDir))
+                    {
+                        New-Item -ItemType Directory -Path $entryDir -Force | Out-Null
+                    }
+
+                    if(!$entryTargetFilePath.EndsWith("/"))
+                    {
+                        [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $entryTargetFilePath, $true);
+                    }
+                }
+            }
+            catch
+            {
+                throw $_
+            }
+        }
+        else {
+            #original method
+            $shellApplication = new-object -com shell.application
+            $zipPackage = $shellApplication.NameSpace("$env:temp\Boxstarter\Boxstarter.zip")
+            $destinationFolder = $shellApplication.NameSpace("$env:temp\boxstarter")
+            $destinationFolder.CopyHere($zipPackage.Items(),0x10)
+        }
+
         [xml]$configXml = Get-Content (Join-Path $env:temp\Boxstarter BoxStarter.config)
         if($configXml.config.LocalRepo -ne $null) {
             $configXml.config.RemoveChild(($configXml.config.ChildNodes | ? { $_.Name -eq "LocalRepo"}))
             $configXml.Save((Join-Path $env:temp\Boxstarter BoxStarter.config))
-        }
-        Import-Module $env:temp\Boxstarter\Boxstarter.Chocolatey\Boxstarter.Chocolatey.psd1
+		}
+    }
+    if ($delegateSources) {
+        Write-BoxstarterMessage "Delegating Boxstarter NugetSources to remote host..."
+        $localCfg = (Join-Path $($Boxstarter.BaseDir) BoxStarter.config)
+        [xml]$configXml = Get-Content $localCfg
+        [string]$theSources = $($configXml.config.NugetSources)
+        Write-BoxstarterMessage "$localCfg - NugetSources: '$theSources'" -Verbose
+        Invoke-Command -Session $Session {
+            param([string]$theSources)
+            Set-ExecutionPolicy Bypass -Force
+            $cfgPath = (Join-Path $env:temp\Boxstarter BoxStarter.config)
+            [xml]$configXml = Get-Content $cfgPath
+            $configXml.config.NugetSources = $theSources
+            $configXml.Save($cfgPath)
+        } -ArgumentList $theSources
     }
 }
 
-function Invoke-RemoteBoxstarter($Package, $Password, $DisableReboots, $session) {
+function Invoke-RemoteBoxstarter($Package, $Credential, $DisableReboots, $session) {
     Write-BoxstarterMessage "Running remote install..."
     $remoteResult = Invoke-Command -session $session {
-        param($SuppressLogging,$pkg,$password,$DisableReboots, $verbosity, $ProgressArgs)
+        param($SuppressLogging,$pkg,$Credential,$DisableReboots, $verbosity, $ProgressArgs, $debug)
         $global:VerbosePreference=$verbosity
+        $global:DebugPreference=$debug
+        Import-Module $env:temp\Boxstarter\Boxstarter.Common\Boxstarter.Common.psd1 -DisableNameChecking
+        if($Credential -eq $null){
+            $currentUser = Get-CurrentUser
+            $credential = (New-Object Management.Automation.PsCredential ("$($currentUser.Domain)\$($currentUser.Name)", (New-Object System.Security.SecureString)))
+        }
+        Create-BoxstarterTask $Credential
         Import-Module $env:temp\Boxstarter\Boxstarter.Chocolatey\Boxstarter.Chocolatey.psd1
         $Boxstarter.SuppressLogging=$SuppressLogging
-        $global:Boxstarter.ProgressArgs=$ProgressArgs 
+        $global:Boxstarter.ProgressArgs=$ProgressArgs
         $result=$null
         try {
-            $result = Invoke-ChocolateyBoxstarter $pkg -Password $password -DisableReboots:$DisableReboots
+            $resultToReturn = @{}
+            $result = Invoke-ChocolateyBoxstarter $pkg -Password $Credential.password -DisableReboots:$DisableReboots
             if($Boxstarter.IsRebooting){
-                return @{Result="Rebooting"}
+                $resultToReturn.Result="Rebooting"
             }
-            if($result=$true){
-                return @{Result="Completed"}
+            elseif($result=$true){
+                $resultToReturn.Result="Completed"
             }
+            $resultToReturn.Errors = $Global:Error
+            return $resultToReturn
         }
         catch{
             throw $_
         }
-    } -ArgumentList $Boxstarter.SuppressLogging, $Package, $Password, $DisableReboots, $global:VerbosePreference, $global:Boxstarter.ProgressArgs
+    } -ArgumentList $Boxstarter.SuppressLogging, $Package, $Credential, $DisableReboots, $global:VerbosePreference, $global:Boxstarter.ProgressArgs, $global:DebugPreference
+    if($remoteResult.Errors -ne $null) {
+        $global:Error.AddRange($remoteResult.Errors)
+    }
     Write-BoxstarterMessage "Result from Remote Boxstarter: $($remoteResult.Result)" -Verbose
     return $remoteResult
 }
@@ -654,8 +751,9 @@ function Wait-ForSessionToClose($session) {
 }
 
 function Test-ShutDownInProgress($Session) {
-    $response=Invoke-Command -Session $Session { 
-        $systemMetrics = Add-Type -TypeDefinition @'
+    $response=Invoke-Command -Session $Session {
+        try {
+        $systemMetrics = Add-Type -TypeDefinition @"
 using System;
 using System.Runtime.InteropServices;
 public static class SystemMetrics
@@ -665,14 +763,17 @@ public static class SystemMetrics
     [DllImport("user32.dll")]
     public static extern int GetSystemMetrics(int smIndex);
 
-    public static bool IsShuttingdown() 
+    public static bool IsShuttingdown()
     {
         return (GetSystemMetrics(SM_SHUTTINGDOWN) != 0);
     }
 
 }
-'@ -PassThru
-        return $systemMetrics::IsShuttingdown()
+"@ -PassThru
+        } catch {}
+        if ($systemMetrics){
+            return $systemMetrics::IsShuttingdown()
+        }
     }
 
     if($response -eq $false) {
@@ -689,10 +790,15 @@ function Test-Reconnection($Session, $sessionPID) {
     $reconnected = $false
 
     #If there is a pending reboot then session is in the middle of a restart
-    $response=Invoke-Command -Session $session { 
-        Import-Module $env:temp\Boxstarter\Boxstarter.Chocolatey\Boxstarter.Chocolatey.psd1 
-        return Test-PendingReboot
-    } -ErrorAction SilentlyContinue
+    try{
+        $response=Invoke-Command -Session $session {
+            Import-Module $env:temp\Boxstarter\Boxstarter.Chocolatey\Boxstarter.Chocolatey.psd1
+            return Test-PendingReboot
+        } -ErrorAction Stop
+    } catch {
+        Write-BoxstarterMessage "Failed to test pending reboot : $($global:Error[0])" -Verbose
+        $global:Error.RemoveAt(0)
+    }
     Write-BoxstarterMessage "Reboot check returned $response" -Verbose
 
 
@@ -705,7 +811,7 @@ function Test-Reconnection($Session, $sessionPID) {
             try{
                 #In case previous session's task is still alive kill it so it does not lock anything
                 Write-BoxstarterMessage "Killing $sessionPID" -Verbose
-                Invoke-Command -Session $session { 
+                Invoke-Command -Session $session {
                     param($p)
                     if(Get-Process -Id $p -ErrorAction SilentlyContinue){
                         KILL $p -ErrorAction Stop -Force
@@ -720,12 +826,12 @@ function Test-Reconnection($Session, $sessionPID) {
             }
         }
     }
-    #if the session is pending a reboot but not in the middle of a system shutdown, 
+    #if the session is pending a reboot but not in the middle of a system shutdown,
     #try to invoke a reboot to prevent us from hanging while waiting
     elseif($response -eq $true -and !(Test-ShutDownInProgress $session)){
         Write-BoxstarterMessage "Attempting to restart $($session.ComputerName)" -Verbose
-        Invoke-Command -Session $session { 
-            Import-Module $env:temp\Boxstarter\Boxstarter.Chocolatey\Boxstarter.Chocolatey.psd1 
+        Invoke-Command -Session $session {
+            Import-Module $env:temp\Boxstarter\Boxstarter.Chocolatey\Boxstarter.Chocolatey.psd1
             $Boxstarter.RebootOK=$true
             if(Test-PendingReboot){restart-Computer -Force }
         } -ErrorAction SilentlyContinue
@@ -734,32 +840,42 @@ function Test-Reconnection($Session, $sessionPID) {
     return $reconnected
 }
 
-function Invoke-Remotely($session,$Package,$DisableReboots,$sessionArgs){
+function Invoke-Remotely([ref]$session,$Package,$DisableReboots,$sessionArgs){
     Write-BoxstarterMessage "Invoking remote install" -verbose
-    while($session.Availability -eq "Available") {
-        $sessionPID = Invoke-Command -Session $session { return $PID }
+    while($session.value.Availability -eq "Available") {
+        $sessionPID = try { Invoke-Command -Session $session.value { return $PID } } catch { $global:Error.RemoveAt(0) }
         Write-BoxstarterMessage "Session's process ID is $sessionPID" -verbose
-        $remoteResult = Invoke-RemoteBoxstarter $Package $sessionArgs.Credential.Password $DisableReboots $session
+        if($sessionPID -ne $null) {
+            $remoteResult = Invoke-RemoteBoxstarter $Package $sessionArgs.Credential $DisableReboots $session.value
+        }
 
         if(Test-RebootingOrDisconnected $remoteResult) {
-            Wait-ForSessionToClose $session
+            Wait-ForSessionToClose $session.value
 
             $reconnected=$false
-            Write-BoxstarterMessage "Waiting for $($session.ComputerName) to respond to remoting..."
+            Write-BoxstarterMessage "Waiting for $($session.value.ComputerName) to respond to remoting..."
             Do{
-                if($session -ne $null){
-                    Remove-PSSession $session
-                    $session = $null
+                if($session.value -ne $null){
+                    Write-BoxstarterMessage "removing session..." -verbose
+                    try { Remove-PSSession $session.value } catch { $global:Error.RemoveAt(0) }
+                    $session.value = $null
+                    Write-BoxstarterMessage "session removed..." -verbose
                 }
                 $response=$null
                 start-sleep -seconds 2
-                $session = New-PSSession @sessionArgs -Name Boxstarter -ErrorAction SilentlyContinue
-                if($session -eq $null) {
+                Write-BoxstarterMessage "attempting to recreate session..." -verbose
+                $session.value = New-PSSession @sessionArgs -Name Boxstarter -ErrorAction SilentlyContinue
+                if($session.value -eq $null) {
+                    Write-BoxstarterMessage "New session is null..." -verbose
                     $global:Error.RemoveAt(0)
                 }
-                elseif($session -ne $null -and $Session.Availability -eq "Available"){
+                elseif($session.value -ne $null -and $Session.value.Availability -eq "Available"){
+                    Write-BoxstarterMessage "testing new session..." -verbose
                     if($remoteResult.Result -eq "Rebooting"){$sessionPID=-1}
-                    $reconnected = Test-Reconnection $session $sessionPID
+                    $reconnected = Test-Reconnection $session.value $sessionPID
+                }
+                else {
+                    Write-BoxstarterMessage "new session is not available..." -verbose
                 }
             }
             Until($reconnected -eq $true)
@@ -777,7 +893,7 @@ function Set-SessionArgs($session, $sessionArgs) {
     }
     else{
         $sessionArgs.ComputerName=$session.ComputerName
-    }    
+    }
 }
 
 function Should-EnableCredSSP($sessionArgs, $computerName) {
@@ -790,7 +906,7 @@ function Should-EnableCredSSP($sessionArgs, $computerName) {
         }
         try {
             $credsspEnabled = Test-WsMan -ComputerName $ComputerName @uriArgs -Credential $SessionArgs.Credential -Authentication CredSSP -ErrorAction SilentlyContinue
-        } 
+        }
         catch {
             Write-BoxstarterMessage "Exception from testing WSMan for CredSSP access" -Verbose
             try { $xml=[xml]$_ } catch { $global:Error.RemoveAt(0) }
@@ -825,17 +941,18 @@ function Enable-RemoteCredSSP($sessionArgs) {
     Write-BoxstarterMessage "Creating a scheduled task to enable CredSSP Authentication on $ComputerName..."
     $n=Invoke-RetriableScript {
         $splat=$args[0]
-        Invoke-Command @splat { 
-            param($Credential)
+        Invoke-Command @splat {
+            param($Credential, $verbosity)
+            $VerbosePreference = $verbosity
             Import-Module $env:temp\Boxstarter\Boxstarter.Common\Boxstarter.Common.psd1 -DisableNameChecking
             Create-BoxstarterTask $Credential
-            Invoke-FromTask "Enable-WSManCredSSP -Role Server -Force | out-Null"
+            Invoke-FromTask "Enable-WSManCredSSP -Role Server -Force | Out-Null"
             Remove-BoxstarterTask
-        } -ArgumentList $args[0].Credential
+        } -ArgumentList @($args[0].Credential, $VerbosePreference)
     } $sessionArgs
     $sessionArgs.Authentication="CredSSP"
     Write-BoxstarterMessage "Creating New session with CredSSP Authentication..." -Verbose
-    try { 
+    try {
         $session = Invoke-RetriableScript {
             $splat=$args[0]
             $s = New-PSSession @splat -Name Boxstarter -ErrorAction Stop
@@ -853,7 +970,7 @@ function Enable-RemoteCredSSP($sessionArgs) {
 
 function Disable-RemoteCredSSP ($sessionArgs){
     Write-BoxstarterMessage "Disabling CredSSP Authentication on $ComputerName" -Verbose
-    Invoke-Command @sessionArgs { 
+    Invoke-Command @sessionArgs {
         param($Credential, $verbosity)
         $Global:VerbosePreference = $verbosity
         Import-Module $env:temp\Boxstarter\Boxstarter.Common\Boxstarter.Common.psd1 -DisableNameChecking
@@ -879,7 +996,7 @@ function Rollback-ClientRemoting($ClientRemotingStatus, $CredSSPStatus) {
         if($CredSSPStatus.PreviousCSSPTrustedHosts -ne $null){
             try{
                 Write-BoxstarterMessage "Reseting CredSSP Trusted Hosts to $($CredSSPStatus.PreviousCSSPTrustedHosts.Replace('wsman/',''))" -Verbose
-                Enable-WSManCredSSP -DelegateComputer $CredSSPStatus.PreviousCSSPTrustedHosts.Replace("wsman/","") -Role Client -Force | Out-Null
+                Enable-WSManCredSSP -DelegateComputer ($CredSSPStatus.PreviousCSSPTrustedHosts.Replace("wsman/","").split(",") | Get-Unique) -Role Client -force | Out-Null
             }
             catch{}
         }
@@ -901,3 +1018,5 @@ function Rollback-ClientRemoting($ClientRemotingStatus, $CredSSPStatus) {
         }
     }
 }
+
+<# Support for expanding Boxstarter modules on Server Core by (C) 2017 United Parcel Service of America, Inc. #>

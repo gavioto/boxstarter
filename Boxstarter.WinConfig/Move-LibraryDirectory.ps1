@@ -21,13 +21,13 @@ Move-LibraryDirectory "Personal" "$env:UserProfile\skydrive\documents"
 This moves the Personal library (aka Documents) to the documents folder off of the default skydrive directory.
 
 .LINK
-http://boxstarter.org
+https://boxstarter.org
 Get-LibraryNames
 
-#>    
+#>
     param(
         [Parameter(Mandatory=$true)]
-        [string]$libraryName, 
+        [string]$libraryName,
         [Parameter(Mandatory=$true)]
         [string]$newPath,
         [switch]$DoNotMoveOldContent
@@ -46,5 +46,5 @@ Get-LibraryNames
     Set-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders' $libraryName $newPath
     Set-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders' $libraryName $newPath
     Restart-Explorer
-    if(!$DoNotMoveOldContent) { Move-Item -Force $oldPath/* $newPath }
+    if(!$DoNotMoveOldContent) { Move-Item -Force $oldPath/* $newPath -ErrorAction SilentlyContinue}
 }

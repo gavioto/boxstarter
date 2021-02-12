@@ -1,4 +1,4 @@
-Resolve-Path $PSScriptRoot\*.ps1 | 
+Resolve-Path $PSScriptRoot\*.ps1 |
     % { . $_.ProviderPath }
 
 Import-Module (Join-Path $Boxstarter.BaseDir Boxstarter.WinConfig\BoxStarter.WinConfig.psd1) -global -DisableNameChecking
@@ -10,4 +10,5 @@ Export-ModuleMember Invoke-BoxStarter, `
                     Start-TimedSection, `
                     Stop-TimedSection, `
                     Out-Boxstarter, `
-                    Enter-BoxstarterLogable
+                    Enter-BoxstarterLogable, `
+                    Get-BoxstarterTempDir

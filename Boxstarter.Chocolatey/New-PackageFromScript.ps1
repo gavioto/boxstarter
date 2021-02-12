@@ -1,12 +1,12 @@
 function New-PackageFromScript {
 <#
 .SYNOPSIS
-Creates a Nuget package from a Chocolatey script
+Creates a NuGet package from a Chocolatey script
 
 .DESCRIPTION
-This creates a .nupkg file from a script file. It adds a dummy nuspec 
-and packs the nuspec and script to a nuget package saved to 
-$Boxstarter.LocalRepo. The function returns a string that is the 
+This creates a .nupkg file from a script file. It adds a dummy nuspec
+and packs the nuspec and script to a NuGet package saved to
+$Boxstarter.LocalRepo. The function returns a string that is the
 Package Name of the package.
 
  .PARAMETER Source
@@ -42,9 +42,9 @@ Creates a Package from the gist located at
 https://gist.github.com/mwrock/6771863/raw/b579aa269c791a53ee1481ad01711b60090db1e2/gistfile1.txt
 
 .LINK
-http://boxstarter.org
+https://boxstarter.org
 about_boxstarter_chocolatey
-#>        
+#>
     [CmdletBinding()]
 	param (
         [Parameter(Mandatory=1)]
@@ -52,12 +52,14 @@ about_boxstarter_chocolatey
         [string] $PackageName="temp_BoxstarterPackage"
     )
 
-    if(!(test-path function:\Get-WebFile)){
-        Check-Chocolatey
-        . "$env:ChocolateyInstall\chocolateyinstall\helpers\functions\Get-WebFile.ps1"
+    $chocoInstall = [System.Environment]::GetEnvironmentVariable('ChocolateyInstall', 'MACHINE')
+    if($chocoInstall -eq $null) {
+        # Simply Installs choco repo and helpers
+        Call-Chocolatey
+        $chocoInstall = [System.Environment]::GetEnvironmentVariable('ChocolateyInstall', 'MACHINE')
     }
     if($source -like "*://*"){
-        try {$text = Get-WebFile -url $Source -passthru } catch{
+        try {$text = Get-HttpResource -url $Source -passthru } catch{
             throw "Unable to retrieve script from $source `r`nInner Exception is:`r`n$_"
         }
     }
@@ -71,7 +73,7 @@ about_boxstarter_chocolatey
     if(Test-Path "$($boxstarter.LocalRepo)\$PackageName"){
         Remove-Item "$($boxstarter.LocalRepo)\$PackageName" -recurse -force
     }
-    New-BoxstarterPackage $PackageName -quiet
+    New-BoxstarterPackage $PackageName -quiet | Out-Null
     Set-Content "$($boxstarter.LocalRepo)\$PackageName\tools\ChocolateyInstall.ps1" -value $text
     Invoke-BoxstarterBuild $PackageName -quiet
 

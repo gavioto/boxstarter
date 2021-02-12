@@ -2,6 +2,7 @@
 <Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>6CAFC0C6-A428-4d30-A9F9-700E829FEA51</ProjectGuid>
     <OutputType>Exe</OutputType>
@@ -57,7 +58,6 @@
   <ItemGroup>
     <Compile Include="Boxstarter.Chocolatey.psd1" />
     <Compile Include="Boxstarter.Chocolatey.psm1" />
-    <Compile Include="Check-Chocolatey.ps1" />
     <Compile Include="Chocolatey.ps1" />
     <Compile Include="Enable-BoxstarterClientRemoting.ps1" />
     <Compile Include="Enable-RemotePsRemoting.ps1" />
